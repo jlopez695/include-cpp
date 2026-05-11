@@ -40,6 +40,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const monacoInstanceRef = useRef<any>(null);
   const [minimap, setMinimap] = useState(false);
+  const [wordWrap, setWordWrap] = useState(false);
   const [splitFile, setSplitFile] = useState<string | null>(null);
 
   const outputResize = useResizable(
@@ -145,7 +146,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
               readOnly: !editor.isActiveEditable,
               renderLineHighlight: editor.isActiveEditable ? 'line' : 'none',
               lineNumbers: 'on',
-              wordWrap: 'off',
+              wordWrap: wordWrap ? 'on' : 'off',
               tabSize: 2,
               smoothScrolling: true,
               cursorBlinking: 'smooth',
@@ -274,8 +275,23 @@ export function EditorPanel({ editor }: EditorPanelProps) {
         <div className="flex-1" />
         <button
           onClick={() => {
+            setWordWrap(v => !v);
+            editor.models.editorRef.current?.updateOptions({ wordWrap: !wordWrap ? 'on' : 'off' });
+          }}
+          title={wordWrap ? 'Disable word wrap' : 'Enable word wrap'}
+          className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+            wordWrap ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
+          }`}
+          aria-label="Toggle word wrap"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 3H12M2 7H10C11.1 7 12 7.9 12 9C12 10.1 11.1 11 10 11H8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M9 9.5L7.5 11L9 12.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <button
+          onClick={() => {
             setMinimap(v => !v);
-            // Update the live editor instance
             editor.models.editorRef.current?.updateOptions({ minimap: { enabled: !minimap } });
           }}
           title={minimap ? 'Hide minimap' : 'Show minimap'}
