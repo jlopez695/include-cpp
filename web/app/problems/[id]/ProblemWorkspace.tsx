@@ -1,0 +1,72 @@
+'use client';
+
+import { useRef } from 'react';
+import type { ProblemDetail } from '@/lib/types';
+import { useProblemEditor } from '@/hooks/useProblemEditor';
+import { useResizable } from '@/hooks/useResizable';
+import { TopBar } from '@/components/TopBar';
+import { ProblemDescription } from '@/components/ProblemDescription';
+import { EditorPanel } from '@/components/EditorPanel';
+import { StatusBar } from '@/components/StatusBar';
+import { HealthBanner } from '@/components/HealthBanner';
+import { langForFile } from '@/lib/lang';
+
+interface Props {
+  problem: ProblemDetail;
+}
+
+export function ProblemWorkspace({ problem }: Props) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const editor = useProblemEditor(problem);
+
+  const horizontal = useResizable(
+    'split-h',
+    38,
+    'horizontal',
+    () => bodyRef.current,
+    [20, 70],
+  );
+
+  return (
+    <>
+      <HealthBanner />
+      <TopBar problem={problem} status={editor.status} />
+
+      {/* Body: description | resizer | editor */}
+      <div className="flex-1 flex overflow-hidden min-h-0" ref={bodyRef}>
+        {/* Description panel */}
+        <section
+          className="flex flex-col border-r border-border-soft overflow-hidden bg-bg-1 min-w-[240px]"
+          style={{ width: `${horizontal.size}%` }}
+        >
+          <div className="px-[18px] py-[9px] text-[10px] font-bold tracking-[1.4px] uppercase text-text-mute border-b border-border-soft bg-bg-1 shrink-0">
+            Problem
+          </div>
+          <ProblemDescription markdown={problem.markdown} />
+        </section>
+
+        {/* Horizontal resizer */}
+        <div
+          onMouseDown={horizontal.onMouseDown}
+          className="w-1 cursor-col-resize shrink-0 relative z-10 hover:bg-accent-dim active:bg-accent-dim transition"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize description panel"
+          tabIndex={0}
+        />
+
+        {/* Editor panel */}
+        <EditorPanel editor={editor} />
+      </div>
+
+      <StatusBar
+        activeFile={editor.activeFile}
+        language={langForFile(editor.activeFile)}
+        isEditable={editor.isActiveEditable}
+        cursorLine={editor.cursorLine}
+        cursorCol={editor.cursorCol}
+        compiling={editor.compiling}
+      />
+    </>
+  );
+}

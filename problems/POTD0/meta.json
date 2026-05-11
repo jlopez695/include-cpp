@@ -1,0 +1,7 @@
+{
+  "title": "Hello World",
+  "buildType": "makefile",
+  "editableFiles": ["hello.cpp"],
+  "readOnlyFiles": ["hello.h", "q1.cpp"],
+  "entrypoint": "main"
+}

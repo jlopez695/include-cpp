@@ -1,0 +1,7 @@
+{
+  "title": "Epoch Time",
+  "buildType": "makefile",
+  "editableFiles": ["epoch.cpp"],
+  "readOnlyFiles": ["epoch.h", "q2.cpp"],
+  "entrypoint": "main"
+}

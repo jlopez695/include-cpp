@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+.next/
+*.tsbuildinfo
+
+# Compile caches and per-user build dirs
+.ccache/
+.builds/
+problems/*/build/
+
+# Compiled C++ binaries dropped in problem dirs by `make`
+problems/*/main
+problems/*/test_runner
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Claude Code settings (personal)
+.claude/
+

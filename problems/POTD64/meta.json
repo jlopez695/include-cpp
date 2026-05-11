@@ -1,0 +1,7 @@
+{
+  "title": "End of Semester",
+  "buildType": "cmake",
+  "editableFiles": ["src/final.cpp"],
+  "readOnlyFiles": ["entry/main.cpp"],
+  "entrypoint": "main"
+}

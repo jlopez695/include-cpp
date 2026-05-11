@@ -1,0 +1,28 @@
+{
+  "name": "potd-api",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node --import @swc-node/register/esm-register src/main.ts",
+    "dev": "node --watch --import @swc-node/register/esm-register src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "node --import @swc-node/register/esm-register --test test/**/*.spec.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.1",
+    "@nestjs/common": "^11.1.7",
+    "@nestjs/core": "^11.1.7",
+    "@nestjs/platform-fastify": "^11.1.7",
+    "@nestjs/throttler": "^6.4.0",
+    "fast-xml-parser": "^5.2.0",
+    "fastify": "^5.4.0",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "@swc-node/register": "^1.11.1",
+    "@swc/core": "^1.15.33",
+    "@types/node": "^25.6.2",
+    "typescript": "^5.9.3"
+  }
+}

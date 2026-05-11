@@ -1,0 +1,5 @@
+set(assignment_name "potd_thanks_giving")
+set(assignment_version 1.2023.05.0)
+set(assignment_entrypoints "main")
+set(assignment_clean_rm "")
+set(assignment_container "sp23")

@@ -1,0 +1,5 @@
+{
+  "name": "225potd",
+  "private": true,
+  "workspaces": ["api", "web"]
+}

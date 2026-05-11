@@ -1,0 +1,163 @@
+@import "tailwindcss";
+@import "highlight.js/styles/github-dark.css";
+
+@theme {
+  --color-bg-0: #0e0e10;
+  --color-bg-1: #16161a;
+  --color-bg-2: #1c1c22;
+  --color-bg-3: #24242c;
+  --color-bg-4: #2e2e38;
+  --color-border-soft: #2a2a33;
+  --color-border-strong: #3a3a47;
+  --color-text-base: #d4d4dc;
+  --color-text-dim: #888892;
+  --color-text-mute: #5a5a66;
+  --color-text-bright: #ffffff;
+  --color-accent: #7aa2f7;
+  --color-accent-dim: #4d6ab7;
+  --color-good: #9ece6a;
+  --color-pass: #73daca;
+  --color-fail: #f7768e;
+  --color-warn: #e0af68;
+  --color-info: #7dcfff;
+  --color-purple: #bb9af7;
+  --color-orange: #ff9e64;
+
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+html, body, #__next {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg-0);
+  color: var(--color-text-base);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ── Markdown prose ── */
+.prose-potd {
+  line-height: 1.7;
+  font-size: 13.5px;
+}
+.prose-potd h1 {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--color-text-bright);
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.prose-potd h2 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-accent);
+  margin: 22px 0 10px;
+}
+.prose-potd h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-bright);
+  margin: 18px 0 8px;
+}
+.prose-potd p { margin-bottom: 12px; }
+.prose-potd ul, .prose-potd ol { padding-left: 22px; margin-bottom: 14px; }
+.prose-potd li { margin-bottom: 6px; }
+.prose-potd strong { color: var(--color-text-bright); font-weight: 600; }
+.prose-potd em { color: var(--color-purple); font-style: normal; }
+.prose-potd a {
+  color: var(--color-info);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--color-accent-dim);
+}
+.prose-potd a:hover { color: var(--color-accent); }
+.prose-potd code {
+  background: var(--color-bg-3);
+  color: var(--color-orange);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border: 1px solid var(--color-border-soft);
+}
+.prose-potd pre {
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 7px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 14px 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.prose-potd pre code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: var(--color-text-base);
+  font-size: inherit;
+}
+.prose-potd blockquote {
+  border-left: 3px solid var(--color-accent-dim);
+  padding: 4px 14px;
+  margin: 12px 0;
+  color: var(--color-text-dim);
+  background: rgba(122, 162, 247, 0.04);
+  border-radius: 0 4px 4px 0;
+}
+.prose-potd table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 12.5px;
+}
+.prose-potd th, .prose-potd td {
+  text-align: left;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.prose-potd th {
+  background: var(--color-bg-2);
+  font-weight: 600;
+  color: var(--color-text-bright);
+}
+
+/* ── kbd tags ── */
+kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: rgba(0,0,0,0.25);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+/* ── Animations ── */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.animate-pulse-soft { animation: pulse-soft 1.1s infinite ease-in-out; }
+
+/* ── Scrollbars ── */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-bg-4);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+  background-clip: padding-box;
+}

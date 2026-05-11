@@ -1,0 +1,7 @@
+{
+  "title": "Pet Constructors",
+  "buildType": "makefile",
+  "editableFiles": ["Pet.cpp", "Pet.h"],
+  "readOnlyFiles": ["main.cpp"],
+  "entrypoint": "main"
+}
