@@ -48,7 +48,7 @@ export function ProblemWorkspace({ problem }: Props) {
         {/* Horizontal resizer */}
         <div
           onMouseDown={horizontal.onMouseDown}
-          className="w-1 cursor-col-resize shrink-0 relative z-10 hover:bg-accent-dim active:bg-accent-dim transition"
+          className="resizer-grip-h w-1.5 cursor-col-resize shrink-0 relative z-10 hover:bg-accent/20 active:bg-accent/30 transition-colors"
           role="separator"
           aria-orientation="vertical"
           aria-label="Resize description panel"

@@ -138,13 +138,15 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     [],
   );
 
+  const stripAnsi = useCallback((s: string) => s.replace(/\x1b\[[0-9;]*m/g, ''), []);
+
   const appendOutput = useCallback((text: string, cls = '') => {
-    const lines = text.split('\n');
+    const lines = stripAnsi(text).split('\n');
     setOutputLines(prev => [
       ...prev,
       ...lines.map(line => ({ text: line || ' ', cls })),
     ]);
-  }, []);
+  }, [stripAnsi]);
 
   const classifyLine = useCallback((line: string): string => {
     if (line.startsWith('[PASS]')) return 'text-pass font-semibold';

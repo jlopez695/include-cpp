@@ -6,25 +6,32 @@ import type { ProblemSummary, Status } from '@/lib/types';
 import { loadStatus } from '@/lib/storage';
 
 function StatusDot({ status }: { status: Status }) {
-  const cls =
-    status === 'solved'
-      ? 'bg-good border-good'
-      : status === 'attempted'
-        ? 'bg-warn border-warn'
-        : 'bg-transparent border-text-mute';
+  if (status === 'solved') {
+    return (
+      <span className="w-[18px] h-[18px] rounded-full bg-good/15 flex items-center justify-center shrink-0" role="img" aria-label="solved">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path d="M2 5.5L4 7.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-good" />
+        </svg>
+      </span>
+    );
+  }
+  if (status === 'attempted') {
+    return (
+      <span className="w-[18px] h-[18px] rounded-full bg-warn/15 flex items-center justify-center shrink-0" role="img" aria-label="attempted">
+        <span className="w-1.5 h-1.5 rounded-full bg-warn" />
+      </span>
+    );
+  }
   return (
-    <span
-      className={`w-2 h-2 rounded-full border-[1.5px] shrink-0 ${cls}`}
-      role="img"
-      aria-label={status}
-    />
+    <span className="w-[18px] h-[18px] rounded-full border border-border-strong flex items-center justify-center shrink-0" role="img" aria-label="unsolved">
+      <span className="w-1 h-1 rounded-full bg-text-mute/40" />
+    </span>
   );
 }
 
 interface SidebarProps {
   problems: ProblemSummary[];
   activeId: string;
-  /** Called from parent to force status refresh (optimistic updates) */
   statusOverrides?: Record<string, Status>;
 }
 
@@ -48,6 +55,7 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
   }, [problems, search]);
 
   const solvedCount = Object.values(statuses).filter(s => s === 'solved').length;
+  const progressPct = problems.length > 0 ? (solvedCount / problems.length) * 100 : 0;
 
   return (
     <aside
@@ -58,15 +66,22 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
       {/* Brand */}
       <div className="p-4 border-b border-border-soft shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-accent to-purple text-bg-0 flex items-center justify-center font-extrabold text-xs tracking-wider shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent via-purple to-accent text-bg-0 flex items-center justify-center font-extrabold text-sm tracking-wider shrink-0 shadow-lg shadow-accent/20">
             225
           </div>
           <div className="flex flex-col min-w-0">
-            <div className="text-[13px] font-bold text-text-bright">CS 225 POTD</div>
-            <div className="text-[11px] text-text-dim mt-px">
+            <div className="text-[13px] font-bold text-text-bright tracking-tight">CS 225 POTD</div>
+            <div className="text-[11px] text-text-dim mt-0.5">
               {solvedCount} of {problems.length} solved
             </div>
           </div>
+        </div>
+        {/* Progress bar */}
+        <div className="mt-3 h-1.5 bg-bg-3 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-accent to-good rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${Math.max(progressPct, 2)}%` }}
+          />
         </div>
       </div>
 
@@ -75,47 +90,66 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
         <label className="sr-only" htmlFor="problem-search">
           Search problems
         </label>
-        <input
-          id="problem-search"
-          type="text"
-          placeholder="Search problems..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full bg-bg-2 border border-border-soft text-text-base placeholder:text-text-mute px-2.5 py-1.5 rounded-md text-xs outline-none focus:border-accent-dim focus:bg-bg-3 transition"
-        />
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-mute" width="12" height="12" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M11 11L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <input
+            id="problem-search"
+            type="text"
+            placeholder="Search problems..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-bg-2 border border-border-soft text-text-base placeholder:text-text-mute pl-8 pr-2.5 py-1.5 rounded-lg text-xs outline-none focus:border-accent-dim focus:bg-bg-3 transition"
+          />
+        </div>
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto py-1.5" role="list">
+      <div className="flex-1 overflow-y-auto py-1" role="list">
         {filtered.length === 0 && (
-          <div className="px-3.5 py-4 text-text-mute text-xs italic" role="status">
+          <div className="px-3.5 py-6 text-text-mute text-xs text-center" role="status">
             No matching problems
           </div>
         )}
-        {filtered.map(p => (
-          <Link
-            key={p.id}
-            href={`/problems/${p.id}`}
-            role="listitem"
-            className={`flex items-center gap-2.5 w-full px-3.5 py-2 text-left border-l-2 transition-colors hover:bg-white/[0.03] no-underline ${
-              activeId === p.id
-                ? 'bg-accent/[0.08] border-l-accent'
-                : 'border-l-transparent'
-            }`}
-          >
-            <StatusDot status={statuses[p.id] ?? 'unsolved'} />
-            <div className="flex flex-col min-w-0 gap-px">
-              <div
-                className={`text-[10px] font-semibold tracking-wider uppercase ${
-                  activeId === p.id ? 'text-accent' : 'text-text-mute'
-                }`}
-              >
-                {p.id}
+        {filtered.map((p, i) => {
+          const isActive = activeId === p.id;
+          const status = statuses[p.id] ?? 'unsolved';
+          return (
+            <Link
+              key={p.id}
+              href={`/problems/${p.id}`}
+              role="listitem"
+              className={`group flex items-center gap-2.5 w-full px-3 py-2.5 text-left border-l-2 transition-all duration-150 hover:bg-white/[0.03] no-underline ${
+                isActive
+                  ? 'bg-accent/[0.07] border-l-accent'
+                  : 'border-l-transparent'
+              }`}
+            >
+              <StatusDot status={status} />
+              <div className="flex flex-col min-w-0 gap-0.5">
+                <div
+                  className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${
+                    isActive ? 'text-accent' : 'text-text-mute group-hover:text-text-dim'
+                  }`}
+                >
+                  {p.id}
+                </div>
+                <div className={`text-[13px] leading-tight truncate transition-colors ${
+                  isActive ? 'text-text-bright' : 'text-text-base'
+                }`}>
+                  {p.title}
+                </div>
               </div>
-              <div className="text-[13px] leading-tight text-text-base truncate">{p.title}</div>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-border-soft text-[10px] text-text-mute shrink-0">
+        Data Structures - UIUC
       </div>
     </aside>
   );

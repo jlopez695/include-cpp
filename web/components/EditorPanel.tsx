@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { ProblemEditorState } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
@@ -8,6 +8,32 @@ import { OutputPanel } from './OutputPanel';
 
 interface EditorPanelProps {
   editor: ProblemEditorState;
+}
+
+function FileIcon({ editable }: { editable: boolean }) {
+  if (editable) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-accent/70 shrink-0">
+        <path d="M3 1.5H7L9.5 4V10.5H3V1.5Z" stroke="currentColor" strokeWidth="1" />
+        <path d="M7 1.5V4H9.5" stroke="currentColor" strokeWidth="1" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-text-mute shrink-0">
+      <rect x="3" y="4" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1" />
+      <path d="M4.5 4V3C4.5 2.17 5.17 1.5 6 1.5C6.83 1.5 7.5 2.17 7.5 3V4" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="animate-spin text-accent">
+      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" opacity="0.2" />
+      <path d="M12.5 7A5.5 5.5 0 0 0 7 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 export function EditorPanel({ editor }: EditorPanelProps) {
@@ -26,11 +52,8 @@ export function EditorPanel({ editor }: EditorPanelProps) {
     (editorInstance, monaco) => {
       monacoInstanceRef.current = monaco;
       editor.models.init(editorInstance, monaco);
-
-      // Monaco is now ready — load files that the useEffect already computed
       editor.loadIntoModels();
 
-      // Bind keyboard shortcuts via Monaco's command system (no window listener conflicts)
       editorInstance.addCommand(
         monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
         () => editor.run('run'),
@@ -40,14 +63,12 @@ export function EditorPanel({ editor }: EditorPanelProps) {
         () => editor.run('test'),
       );
 
-      // Cursor tracking
       editorInstance.onDidChangeCursorPosition(
         (e: { position: { lineNumber: number; column: number } }) => {
           editor.setCursor(e.position.lineNumber, e.position.column);
         },
       );
 
-      // Content change → persist
       editorInstance.onDidChangeModelContent(() => {
         const model = editorInstance.getModel();
         if (model) {
@@ -57,7 +78,6 @@ export function EditorPanel({ editor }: EditorPanelProps) {
           }
         }
       });
-
     },
     [editor],
   );
@@ -69,47 +89,41 @@ export function EditorPanel({ editor }: EditorPanelProps) {
     >
       {/* File tabs */}
       <div
-        className="h-[34px] flex bg-bg-1 border-b border-border-soft overflow-x-auto shrink-0"
+        className="h-[36px] flex bg-bg-1 border-b border-border-soft overflow-x-auto shrink-0"
         role="tablist"
         aria-label="File tabs"
       >
-        {editor.allFiles.map(({ name, editable }) => (
-          <button
-            key={name}
-            onClick={() => editor.setActiveFile(name)}
-            role="tab"
-            aria-selected={editor.activeFile === name}
-            aria-label={`${name}${!editable ? ' (read only)' : ''}`}
-            className={`relative flex items-center gap-1.5 px-3.5 h-full border-r border-border-soft font-mono text-xs whitespace-nowrap transition-colors hover:bg-white/[0.03] ${
-              editor.activeFile === name
-                ? editable
+        {editor.allFiles.map(({ name, editable }) => {
+          const isActive = editor.activeFile === name;
+          return (
+            <button
+              key={name}
+              onClick={() => editor.setActiveFile(name)}
+              role="tab"
+              aria-selected={isActive}
+              aria-label={`${name}${!editable ? ' (read only)' : ''}`}
+              className={`group relative flex items-center gap-1.5 px-3.5 h-full border-r border-border-soft font-mono text-[12px] whitespace-nowrap transition-all duration-150 ${
+                isActive
                   ? 'bg-bg-0 text-text-bright'
-                  : 'bg-bg-0 text-text-dim'
-                : editable
-                  ? 'text-text-dim hover:text-text-base'
-                  : 'text-text-mute hover:text-text-dim'
-            }`}
-          >
-            {editor.activeFile === name && (
-              <span
-                className={`absolute top-0 left-0 right-0 h-[2px] ${
-                  editable ? 'bg-accent' : 'bg-text-mute'
-                }`}
-              />
-            )}
-            <span
-              className={`text-[9px] ${
-                editable ? 'text-accent opacity-70' : 'text-text-mute'
+                  : 'text-text-dim hover:text-text-base hover:bg-white/[0.02]'
               }`}
             >
-              {editable ? '\u25CF' : '\uD83D\uDD12'}
-            </span>
-            <span>{name}</span>
-          </button>
-        ))}
+              {isActive && (
+                <span className={`absolute top-0 left-0 right-0 h-[2px] ${
+                  editable ? 'bg-accent' : 'bg-text-mute/50'
+                }`} />
+              )}
+              <FileIcon editable={editable} />
+              <span>{name}</span>
+              {!editable && isActive && (
+                <span className="text-[9px] text-text-mute/60 uppercase tracking-wider ml-1">ro</span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Monaco editor — single instance, models swap on tab change */}
+      {/* Monaco editor */}
       <div className="flex-1 relative overflow-hidden min-h-0 bg-[#1e1e1e]">
         <Editor
           defaultLanguage="cpp"
@@ -128,56 +142,91 @@ export function EditorPanel({ editor }: EditorPanelProps) {
             tabSize: 2,
             smoothScrolling: true,
             cursorBlinking: 'smooth',
+            cursorSmoothCaretAnimation: 'on',
             padding: { top: 12, bottom: 12 },
+            bracketPairColorization: { enabled: true },
+            guides: { bracketPairs: true },
           }}
         />
         {!editor.isActiveEditable && (
-          <div className="absolute top-2.5 right-5 bg-black/55 backdrop-blur text-text-dim text-[10px] px-2.5 py-0.5 rounded-[10px] pointer-events-none z-10 tracking-wider uppercase border border-border-soft">
+          <div className="absolute top-3 right-4 bg-bg-3/80 backdrop-blur-sm text-text-dim text-[10px] px-3 py-1 rounded-full pointer-events-none z-10 tracking-wider uppercase border border-border-soft/50 flex items-center gap-1.5">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <rect x="3" y="4" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1" />
+              <path d="M4.5 4V3C4.5 2.17 5.17 1.5 6 1.5C6.83 1.5 7.5 2.17 7.5 3V4" stroke="currentColor" strokeWidth="1" />
+            </svg>
             Read Only
           </div>
         )}
       </div>
 
       {/* Action bar */}
-      <div className="h-11 flex items-center gap-2 px-3.5 bg-bg-1 border-t border-border-soft shrink-0">
-        <button
-          onClick={() => editor.run('run')}
-          disabled={editor.running}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold bg-accent text-bg-0 hover:bg-[#93b5f8] disabled:opacity-40 disabled:cursor-not-allowed active:translate-y-px transition"
-          aria-label="Run program (Cmd+Enter)"
-        >
-          <span className="text-[11px]">{'\u25B6'}</span>
-          <span>Run</span>
-          <kbd>{'\u2318\u21B5'}</kbd>
-        </button>
-        <button
-          onClick={() => editor.run('test')}
-          disabled={editor.running}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold bg-good text-bg-0 hover:bg-[#b4dc85] disabled:opacity-40 disabled:cursor-not-allowed active:translate-y-px transition"
-          aria-label="Run tests (Cmd+Shift+Enter)"
-        >
-          <span className="text-[11px]">{'\u2713'}</span>
-          <span>Test</span>
-          <kbd>{'\u2318\u21E7\u21B5'}</kbd>
-        </button>
-        <button
-          onClick={editor.reset}
-          disabled={editor.running}
-          title="Restore starter code"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold bg-transparent text-text-dim border border-border-soft hover:bg-bg-2 hover:text-text-base hover:border-border-strong disabled:opacity-40 disabled:cursor-not-allowed active:translate-y-px transition"
-          aria-label="Reset to starter code"
-        >
-          <span className="text-[11px]">{'\u21BA'}</span>
-          <span>Reset</span>
-        </button>
-        <div className="flex-1" />
-        {editor.running && (
-          <span className="text-xs text-accent font-medium animate-pulse-soft" role="status">
-            {editor.compiling ? 'Compiling...' : 'Running...'}
-          </span>
+      <div className="h-12 flex items-center gap-2 px-4 bg-bg-1 border-t border-border-soft shrink-0">
+        {!editor.running ? (
+          <>
+            <button
+              onClick={() => editor.run('run')}
+              className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-lg text-[12px] font-semibold bg-accent text-bg-0 hover:brightness-110 active:translate-y-px transition-all shadow-sm shadow-accent/20"
+              aria-label="Run program (Cmd+Enter)"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                <polygon points="1,0 10,5 1,10" />
+              </svg>
+              Run
+              <kbd className="border-none bg-black/20 shadow-none opacity-60">{'\u2318\u21B5'}</kbd>
+            </button>
+            <button
+              onClick={() => editor.run('test')}
+              className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-lg text-[12px] font-semibold bg-good text-bg-0 hover:brightness-110 active:translate-y-px transition-all shadow-sm shadow-good/20"
+              aria-label="Run tests (Cmd+Shift+Enter)"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 5.5L4 7.5L8 3" />
+              </svg>
+              Test
+              <kbd className="border-none bg-black/20 shadow-none opacity-60">{'\u2318\u21E7\u21B5'}</kbd>
+            </button>
+            <button
+              onClick={editor.reset}
+              title="Restore starter code"
+              className="inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-[12px] font-medium text-text-dim border border-border-soft hover:bg-bg-2 hover:text-text-base hover:border-border-strong active:translate-y-px transition-all"
+              aria-label="Reset to starter code"
+            >
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                <path d="M2.5 6.5A4 4 0 1 1 3.5 9.5" />
+                <path d="M2 3.5V6.5H5" />
+              </svg>
+              Reset
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={editor.abort}
+              className="inline-flex items-center gap-2 px-4 py-[7px] rounded-lg text-[12px] font-semibold bg-fail/15 text-fail border border-fail/25 hover:bg-fail/25 active:translate-y-px transition-all"
+              aria-label="Stop execution"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                <rect x="1" y="1" width="8" height="8" rx="1" />
+              </svg>
+              Stop
+            </button>
+            <div className="flex items-center gap-2 ml-2">
+              <Spinner />
+              <span className="text-[12px] text-accent font-medium">
+                {editor.compiling ? 'Compiling...' : 'Running...'}
+              </span>
+            </div>
+          </>
         )}
+
+        <div className="flex-1" />
         {editor.sseError && !editor.running && (
-          <span className="text-xs text-fail font-medium" role="alert">
+          <span className="text-[11px] text-fail font-medium flex items-center gap-1.5 animate-fade-in" role="alert">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M6 3.5V6.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              <circle cx="6" cy="8.5" r="0.5" fill="currentColor" />
+            </svg>
             {editor.sseError}
           </span>
         )}
@@ -186,7 +235,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
       {/* Vertical resizer */}
       <div
         onMouseDown={outputResize.onMouseDown}
-        className="h-1 cursor-row-resize shrink-0 hover:bg-accent-dim active:bg-accent-dim transition"
+        className="resizer-grip-v h-1.5 cursor-row-resize shrink-0 relative hover:bg-accent/20 active:bg-accent/30 transition-colors"
         role="separator"
         aria-orientation="horizontal"
         aria-label="Resize output panel"

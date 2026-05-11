@@ -68,7 +68,8 @@ export async function runCmake(
       `cmake -S "${problemDir}" -B "${buildDir}" ${ccacheFlags}`,
       { cwd: buildDir, env, limits: { cpuSeconds: 60, wallMs: 60_000 }, signal },
     );
-    pipeRawChild(configure.child, emit);
+    // Only pipe stderr from configure/build — stdout is noisy CMake progress
+    pipeStderrOnly(configure.child, emit);
     const configureResult = await configure.done;
     if (configureResult.exitCode !== 0) {
       emit({ kind: 'compile-end', exitCode: configureResult.exitCode, killedByTimeout: configureResult.killedByTimeout });
@@ -82,12 +83,18 @@ export async function runCmake(
       limits: { cpuSeconds: 60, wallMs: 60_000 },
       signal,
     });
-    pipeRawChild(build.child, emit);
+    pipeStderrOnly(build.child, emit);
     const buildResult = await build.done;
     emit({ kind: 'compile-end', exitCode: buildResult.exitCode, killedByTimeout: buildResult.killedByTimeout });
     if (buildResult.exitCode !== 0) {
       return { passed: 0, total: 0, exitCode: buildResult.exitCode };
     }
+
+    // Ensure CTestTestfile.cmake exists — some CS 225 CMakeLists.txt omit
+    // enable_testing(), so CMake never generates the entry-point file that
+    // ctest reads. catch_discover_tests() still writes *_include.cmake files
+    // as a post-build step; we just need to create the glue file.
+    await ensureCTestFile(buildDir);
 
     // Run or test
     emit({ kind: 'run-start' });
@@ -107,7 +114,9 @@ export async function runCmake(
         env,
         signal,
       });
-      pipeRawChild(ctest.child, emit);
+      // Suppress ctest's raw stdout (progress lines) — we parse JUnit XML
+      // for structured results. Keep stderr for unexpected failures.
+      pipeStderrOnly(ctest.child, emit);
       const ctestResult = await ctest.done;
       exitCode = ctestResult.exitCode;
 
@@ -157,6 +166,15 @@ function pipeRawChild(
   child.stderr?.on('data', (data: string) => emit({ kind: 'stderr', data }));
 }
 
+/** Pipe only stderr — used for configure/build/ctest where stdout is noisy progress output. */
+function pipeStderrOnly(
+  child: import('node:child_process').ChildProcess,
+  emit: StreamCallback,
+): void {
+  child.stderr?.setEncoding('utf8');
+  child.stderr?.on('data', (data: string) => emit({ kind: 'stderr', data }));
+}
+
 async function findRunnableBinary(buildDir: string): Promise<string> {
   // Heuristic: pick the first executable file in the build dir (not a dir).
   const entries = await fs.promises.readdir(buildDir, { withFileTypes: true });
@@ -172,6 +190,23 @@ async function findRunnableBinary(buildDir: string): Promise<string> {
     }
   }
   throw new Error('No runnable binary found in build directory');
+}
+
+/**
+ * If CTestTestfile.cmake is missing (because the problem's CMakeLists.txt
+ * doesn't call enable_testing()), generate one that includes all
+ * catch_discover_tests output files (*_include.cmake).
+ */
+async function ensureCTestFile(buildDir: string): Promise<void> {
+  const ctestFile = path.join(buildDir, 'CTestTestfile.cmake');
+  if (fs.existsSync(ctestFile)) return;
+
+  const entries = await fs.promises.readdir(buildDir);
+  const includes = entries.filter(e => e.endsWith('_include.cmake'));
+  if (includes.length === 0) return;
+
+  const lines = includes.map(f => `include("${path.join(buildDir, f)}")`);
+  await fs.promises.writeFile(ctestFile, lines.join('\n') + '\n');
 }
 
 // parseJUnit lives in ./junit.ts so it can be unit-tested without spawning ctest.

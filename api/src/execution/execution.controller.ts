@@ -64,12 +64,17 @@ export class ExecutionController {
     const controller = new AbortController();
     req.raw.on('close', () => controller.abort());
 
+    const origin = req.headers.origin;
     const raw = res.raw;
     raw.statusCode = 200;
     raw.setHeader('Content-Type', 'text/event-stream');
     raw.setHeader('Cache-Control', 'no-cache, no-transform');
     raw.setHeader('Connection', 'keep-alive');
     raw.setHeader('X-Accel-Buffering', 'no');
+    if (origin) {
+      raw.setHeader('Access-Control-Allow-Origin', origin);
+      raw.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
     raw.flushHeaders?.();
 
     const write = (event: StreamEvent) => {
