@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import type { ProblemSummary, Status } from '@/lib/types';
 import { loadStatus, getStreak } from '@/lib/storage';
@@ -43,12 +43,15 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
   const [filter, setFilter] = useState<Filter>('all');
   const [showProgress, setShowProgress] = useState(false);
 
-  const statuses = useMemo(() => {
+  const [statuses, setStatuses] = useState<Record<string, Status>>({});
+
+  // Load statuses client-side only to avoid hydration mismatch (localStorage is not available on server)
+  useEffect(() => {
     const s: Record<string, Status> = {};
     for (const p of problems) {
       s[p.id] = statusOverrides?.[p.id] ?? loadStatus(p.id);
     }
-    return s;
+    setStatuses(s);
   }, [problems, statusOverrides]);
 
   const filtered = useMemo(() => {
@@ -198,7 +201,10 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
 }
 
 function StreakBadge() {
-  const streak = getStreak();
+  const [streak, setStreak] = useState(0);
+  useEffect(() => {
+    setStreak(getStreak());
+  }, []);
   if (streak === 0) return null;
   return (
     <span className="inline-flex items-center gap-1 text-orange font-semibold" title={`${streak} day streak`}>
