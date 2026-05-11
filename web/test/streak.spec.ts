@@ -13,7 +13,57 @@ const mockLocalStorage = {
 (globalThis as any).localStorage = mockLocalStorage;
 (globalThis as any).window = globalThis;
 
-import { recordSolveDate, getStreak } from '../lib/storage.js';
+import { recordSolveDate, getStreak, loadStatus } from '../lib/storage.js';
+
+describe('SSR safety (hydration fix)', () => {
+  // The hydration bug was caused by loadStatus/getStreak reading localStorage
+  // during server render, producing different HTML than the client. The fix:
+  // these functions must return safe defaults when window is undefined.
+
+  it('loadStatus returns "unsolved" when window is undefined', () => {
+    const saved = globalThis.window;
+    delete (globalThis as any).window;
+    try {
+      assert.equal(loadStatus('any-problem'), 'unsolved');
+    } finally {
+      (globalThis as any).window = saved;
+    }
+  });
+
+  it('getStreak returns 0 when window is undefined', () => {
+    const saved = globalThis.window;
+    delete (globalThis as any).window;
+    try {
+      assert.equal(getStreak(), 0);
+    } finally {
+      (globalThis as any).window = saved;
+    }
+  });
+
+  it('recordSolveDate is a no-op when window is undefined', () => {
+    store['potd:solve-dates'] = JSON.stringify(['2025-01-01']);
+    const saved = globalThis.window;
+    delete (globalThis as any).window;
+    try {
+      recordSolveDate(); // should not throw or modify store
+    } finally {
+      (globalThis as any).window = saved;
+    }
+    // store should be unchanged — the function was a no-op
+    assert.deepEqual(JSON.parse(store['potd:solve-dates']), ['2025-01-01']);
+  });
+
+  it('loadStatus returns "unsolved" even when localStorage has data but window is gone', () => {
+    store['potd:status:POTD0'] = 'solved';
+    const saved = globalThis.window;
+    delete (globalThis as any).window;
+    try {
+      assert.equal(loadStatus('POTD0'), 'unsolved');
+    } finally {
+      (globalThis as any).window = saved;
+    }
+  });
+});
 
 describe('streak tracking', () => {
   beforeEach(() => {
