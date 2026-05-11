@@ -10,7 +10,11 @@ interface ProblemDescriptionProps {
 
 export function ProblemDescription({ markdown }: ProblemDescriptionProps) {
   return (
-    <div className="flex-1 overflow-y-auto px-6 pt-[22px] pb-8 prose-potd" role="article">
+    <div
+      key={markdown.slice(0, 50)}
+      className="flex-1 overflow-y-auto px-6 pt-[22px] pb-8 prose-potd animate-fade-in"
+      role="article"
+    >
       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
         {markdown}
       </ReactMarkdown>

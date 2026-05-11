@@ -56,8 +56,12 @@ export function ProblemWorkspace({ problem, problems }: Props) {
           className="flex flex-col border-r border-border-soft overflow-hidden bg-bg-1 min-w-[240px]"
           style={{ width: `${horizontal.size}%` }}
         >
-          <div className="px-[18px] py-[9px] text-[10px] font-bold tracking-[1.4px] uppercase text-text-mute border-b border-border-soft bg-bg-1 shrink-0">
-            Problem
+          <div className="px-[18px] py-[9px] text-[10px] font-bold tracking-[1.4px] uppercase border-b border-border-soft bg-bg-1 shrink-0 flex items-center gap-1.5">
+            <span className="text-text-mute">Problems</span>
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className="text-text-mute/50">
+              <path d="M3 2L5 4L3 6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+            </svg>
+            <span className="text-accent">{problem.id}</span>
           </div>
           <ProblemDescription markdown={problem.markdown} />
         </section>

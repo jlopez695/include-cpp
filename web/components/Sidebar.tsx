@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { ProblemSummary, Status } from '@/lib/types';
-import { loadStatus } from '@/lib/storage';
+import { loadStatus, getStreak } from '@/lib/storage';
+import { ProgressDashboard } from './ProgressDashboard';
 
 type Filter = 'all' | Status;
 
@@ -40,6 +41,7 @@ interface SidebarProps {
 export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [showProgress, setShowProgress] = useState(false);
 
   const statuses = useMemo(() => {
     const s: Record<string, Status> = {};
@@ -83,9 +85,12 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
           </div>
           <div className="flex flex-col min-w-0">
             <div className="text-[13px] font-bold text-text-bright tracking-tight">CS 225 POTD</div>
-            <div className="text-[11px] text-text-dim mt-0.5">
+            <button
+              onClick={() => setShowProgress(true)}
+              className="text-[11px] text-text-dim mt-0.5 hover:text-accent transition-colors text-left"
+            >
               {solvedCount} of {problems.length} solved
-            </div>
+            </button>
           </div>
         </div>
         {/* Progress bar */}
@@ -178,9 +183,30 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-border-soft text-[10px] text-text-mute shrink-0">
-        Data Structures - UIUC
+      <div className="px-4 py-3 border-t border-border-soft text-[10px] text-text-mute shrink-0 flex items-center justify-between">
+        <span>Data Structures - UIUC</span>
+        <StreakBadge />
       </div>
+
+      <ProgressDashboard
+        open={showProgress}
+        onClose={() => setShowProgress(false)}
+        problems={problems}
+      />
     </aside>
+  );
+}
+
+function StreakBadge() {
+  const streak = getStreak();
+  if (streak === 0) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-orange font-semibold" title={`${streak} day streak`}>
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M6 1L7.5 5H4.5L6 1Z" fill="currentColor" opacity="0.6" />
+        <path d="M6 4L8 8.5C8 10 7.1 11 6 11C4.9 11 4 10 4 8.5L6 4Z" fill="currentColor" />
+      </svg>
+      {streak}
+    </span>
   );
 }

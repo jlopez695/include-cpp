@@ -40,6 +40,30 @@ body {
   overflow: hidden;
 }
 
+/* ── Light theme overrides ── */
+html.light {
+  --color-bg-0: #ffffff;
+  --color-bg-1: #f8f8fa;
+  --color-bg-2: #f0f0f4;
+  --color-bg-3: #e4e4ec;
+  --color-bg-4: #d4d4dc;
+  --color-border-soft: #e0e0e8;
+  --color-border-strong: #c8c8d4;
+  --color-text-base: #24292f;
+  --color-text-dim: #57606a;
+  --color-text-mute: #8b949e;
+  --color-text-bright: #1b1f24;
+  --color-accent: #2563eb;
+  --color-accent-dim: #6b8cdb;
+  --color-good: #16a34a;
+  --color-pass: #059669;
+  --color-fail: #dc2626;
+  --color-warn: #ca8a04;
+  --color-info: #0284c7;
+  --color-purple: #7c3aed;
+  --color-orange: #ea580c;
+}
+
 ::selection {
   background: rgba(122, 162, 247, 0.25);
   color: var(--color-text-bright);

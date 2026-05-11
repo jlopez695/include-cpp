@@ -13,9 +13,10 @@ interface OutputPanelProps {
   testResults: TestResult[];
   label: string;
   summary: string | null;
+  onRerunTests?: () => void;
 }
 
-export function OutputPanel({ lines, testResults, label, summary }: OutputPanelProps) {
+export function OutputPanel({ lines, testResults, label, summary, onRerunTests }: OutputPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export function OutputPanel({ lines, testResults, label, summary }: OutputPanelP
   }, [lines.length, testResults.length]);
 
   const hasTests = testResults.length > 0;
+  const hasFailed = testResults.some(t => t.status !== 'pass');
   const hasLines = lines.length > 0;
   const isEmpty = !hasTests && !hasLines;
 
@@ -53,7 +55,21 @@ export function OutputPanel({ lines, testResults, label, summary }: OutputPanelP
             </span>
           )}
         </div>
-        {summary && <SummaryBadge summary={summary} />}
+        <div className="flex items-center gap-2">
+          {hasFailed && onRerunTests && (
+            <button
+              onClick={onRerunTests}
+              className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors flex items-center gap-1"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M2 5A3.5 3.5 0 1 1 3 7.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                <path d="M1.5 3.5V5.5H3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Re-run
+            </button>
+          )}
+          {summary && <SummaryBadge summary={summary} />}
+        </div>
       </div>
 
       {/* Content */}

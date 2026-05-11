@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { ProblemEditorState } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
@@ -39,6 +39,8 @@ function Spinner() {
 export function EditorPanel({ editor }: EditorPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const monacoInstanceRef = useRef<any>(null);
+  const [minimap, setMinimap] = useState(false);
+  const [splitFile, setSplitFile] = useState<string | null>(null);
 
   const outputResize = useResizable(
     'output-height',
@@ -127,38 +129,84 @@ export function EditorPanel({ editor }: EditorPanelProps) {
         })}
       </div>
 
-      {/* Monaco editor */}
-      <div className="flex-1 relative overflow-hidden min-h-0 bg-[#1e1e1e]">
-        <Editor
-          defaultLanguage="cpp"
-          theme="vs-dark"
-          onMount={handleEditorMount}
-          options={{
-            fontSize: 13,
-            fontFamily: '"JetBrains Mono", "Fira Code", "Menlo", monospace',
-            fontLigatures: true,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            readOnly: !editor.isActiveEditable,
-            renderLineHighlight: editor.isActiveEditable ? 'line' : 'none',
-            lineNumbers: 'on',
-            wordWrap: 'off',
-            tabSize: 2,
-            smoothScrolling: true,
-            cursorBlinking: 'smooth',
-            cursorSmoothCaretAnimation: 'on',
-            padding: { top: 12, bottom: 12 },
-            bracketPairColorization: { enabled: true },
-            guides: { bracketPairs: true },
-          }}
-        />
-        {!editor.isActiveEditable && (
-          <div className="absolute top-3 right-4 bg-bg-3/80 backdrop-blur-sm text-text-dim text-[10px] px-3 py-1 rounded-full pointer-events-none z-10 tracking-wider uppercase border border-border-soft/50 flex items-center gap-1.5">
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-              <rect x="3" y="4" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1" />
-              <path d="M4.5 4V3C4.5 2.17 5.17 1.5 6 1.5C6.83 1.5 7.5 2.17 7.5 3V4" stroke="currentColor" strokeWidth="1" />
-            </svg>
-            Read Only
+      {/* Monaco editor(s) */}
+      <div className={`flex-1 flex overflow-hidden min-h-0 ${splitFile ? 'gap-px bg-border-soft' : ''}`}>
+        <div className="flex-1 relative overflow-hidden bg-[#1e1e1e]">
+          <Editor
+            defaultLanguage="cpp"
+            theme="vs-dark"
+            onMount={handleEditorMount}
+            options={{
+              fontSize: 13,
+              fontFamily: '"JetBrains Mono", "Fira Code", "Menlo", monospace',
+              fontLigatures: true,
+              minimap: { enabled: minimap },
+              scrollBeyondLastLine: false,
+              readOnly: !editor.isActiveEditable,
+              renderLineHighlight: editor.isActiveEditable ? 'line' : 'none',
+              lineNumbers: 'on',
+              wordWrap: 'off',
+              tabSize: 2,
+              smoothScrolling: true,
+              cursorBlinking: 'smooth',
+              cursorSmoothCaretAnimation: 'on',
+              padding: { top: 12, bottom: 12 },
+              bracketPairColorization: { enabled: true },
+              guides: { bracketPairs: true },
+            }}
+          />
+          {!editor.isActiveEditable && (
+            <div className="absolute top-3 right-4 bg-bg-3/80 backdrop-blur-sm text-text-dim text-[10px] px-3 py-1 rounded-full pointer-events-none z-10 tracking-wider uppercase border border-border-soft/50 flex items-center gap-1.5">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                <rect x="3" y="4" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1" />
+                <path d="M4.5 4V3C4.5 2.17 5.17 1.5 6 1.5C6.83 1.5 7.5 2.17 7.5 3V4" stroke="currentColor" strokeWidth="1" />
+              </svg>
+              Read Only
+            </div>
+          )}
+        </div>
+
+        {/* Split pane */}
+        {splitFile && (
+          <div className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e] animate-fade-in">
+            <div className="flex items-center justify-between px-3 py-1 bg-bg-1 border-b border-border-soft text-[11px] shrink-0">
+              <select
+                value={splitFile}
+                onChange={e => setSplitFile(e.target.value)}
+                className="bg-transparent text-text-base text-[11px] font-mono outline-none cursor-pointer"
+              >
+                {editor.allFiles.map(f => (
+                  <option key={f.name} value={f.name}>{f.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setSplitFile(null)}
+                className="text-text-mute hover:text-text-bright transition-colors"
+                aria-label="Close split view"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M2 2L8 8M8 2L2 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <Editor
+              defaultLanguage="cpp"
+              theme="vs-dark"
+              value={editor.models.getContent(splitFile)}
+              options={{
+                fontSize: 13,
+                fontFamily: '"JetBrains Mono", "Fira Code", "Menlo", monospace',
+                fontLigatures: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                readOnly: true,
+                renderLineHighlight: 'none',
+                lineNumbers: 'on',
+                wordWrap: 'off',
+                tabSize: 2,
+                padding: { top: 12, bottom: 12 },
+              }}
+            />
           </div>
         )}
       </div>
@@ -224,6 +272,45 @@ export function EditorPanel({ editor }: EditorPanelProps) {
         )}
 
         <div className="flex-1" />
+        <button
+          onClick={() => {
+            setMinimap(v => !v);
+            // Update the live editor instance
+            editor.models.editorRef.current?.updateOptions({ minimap: { enabled: !minimap } });
+          }}
+          title={minimap ? 'Hide minimap' : 'Show minimap'}
+          className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+            minimap ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
+          }`}
+          aria-label="Toggle minimap"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="2" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1.2" />
+            <rect x="10" y="3" width="3" height="8" rx="0.5" fill="currentColor" opacity="0.4" />
+            <path d="M3 5H7M3 7H6M3 9H7" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
+          </svg>
+        </button>
+        <button
+          onClick={() => {
+            if (splitFile) {
+              setSplitFile(null);
+            } else {
+              // Open split with a different file than current
+              const other = editor.allFiles.find(f => f.name !== editor.activeFile);
+              setSplitFile(other?.name ?? editor.allFiles[0]?.name ?? null);
+            }
+          }}
+          title={splitFile ? 'Close split view' : 'Open split view'}
+          className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+            splitFile ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
+          }`}
+          aria-label="Toggle split editor"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="2" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M7 2V12" stroke="currentColor" strokeWidth="1.2" />
+          </svg>
+        </button>
         {editor.sseError && !editor.running && (
           <span className="text-[11px] text-fail font-medium flex items-center gap-1.5 animate-fade-in" role="alert">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -256,6 +343,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
           testResults={editor.testResults}
           label={editor.outputLabel}
           summary={editor.summary}
+          onRerunTests={!editor.running ? () => editor.run('test') : undefined}
         />
       </div>
     </section>

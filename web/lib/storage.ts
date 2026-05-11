@@ -130,6 +130,42 @@ export function saveStatus(
   }
 }
 
+/* ── Streak tracking ── */
+
+export function recordSolveDate(): void {
+  if (typeof window === 'undefined') return;
+  const today = new Date().toISOString().slice(0, 10);
+  const raw = localStorage.getItem('potd:solve-dates');
+  const dates: string[] = raw ? JSON.parse(raw) : [];
+  if (!dates.includes(today)) {
+    dates.push(today);
+    localStorage.setItem('potd:solve-dates', JSON.stringify(dates));
+  }
+}
+
+export function getStreak(): number {
+  if (typeof window === 'undefined') return 0;
+  const raw = localStorage.getItem('potd:solve-dates');
+  if (!raw) return 0;
+  const dates: string[] = JSON.parse(raw);
+  if (dates.length === 0) return 0;
+
+  const sorted = [...dates].sort().reverse();
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
+
+  let streak = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const curr = new Date(sorted[i - 1] + 'T00:00:00');
+    const prev = new Date(sorted[i] + 'T00:00:00');
+    const diff = (curr.getTime() - prev.getTime()) / 86400000;
+    if (diff === 1) streak++;
+    else break;
+  }
+  return streak;
+}
+
 /* ── UI state persistence ── */
 
 export function loadUiState<T>(key: string, fallback: T): T {
