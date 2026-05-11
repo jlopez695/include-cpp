@@ -95,13 +95,14 @@ export function EditorPanel({ editor }: EditorPanelProps) {
       >
         {editor.allFiles.map(({ name, editable }) => {
           const isActive = editor.activeFile === name;
+          const isModified = editor.modifiedFiles.has(name);
           return (
             <button
               key={name}
               onClick={() => editor.setActiveFile(name)}
               role="tab"
               aria-selected={isActive}
-              aria-label={`${name}${!editable ? ' (read only)' : ''}`}
+              aria-label={`${name}${!editable ? ' (read only)' : ''}${isModified ? ' (modified)' : ''}`}
               className={`group relative flex items-center gap-1.5 px-3.5 h-full border-r border-border-soft font-mono text-[12px] whitespace-nowrap transition-all duration-150 ${
                 isActive
                   ? 'bg-bg-0 text-text-bright'
@@ -115,6 +116,9 @@ export function EditorPanel({ editor }: EditorPanelProps) {
               )}
               <FileIcon editable={editable} />
               <span>{name}</span>
+              {isModified && (
+                <span className="w-1.5 h-1.5 rounded-full bg-accent/70 shrink-0" title="Modified" />
+              )}
               {!editable && isActive && (
                 <span className="text-[9px] text-text-mute/60 uppercase tracking-wider ml-1">ro</span>
               )}

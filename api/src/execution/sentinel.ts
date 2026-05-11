@@ -17,6 +17,7 @@ export interface TestEvent {
   name: string;
   status: TestStatus;
   message?: string;
+  durationMs?: number;
 }
 
 export interface ResultEvent {

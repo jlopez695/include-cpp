@@ -140,12 +140,48 @@ function TestResultRow({ result }: { result: TestResult }) {
 
       {/* Expanded failure detail */}
       {expanded && result.message && (
-        <div className="ml-7 mr-2 mb-2 px-3 py-2 rounded-md bg-fail/[0.06] border border-fail/15 text-[11.5px] text-fail/90 whitespace-pre-wrap break-words leading-relaxed animate-fade-in">
-          {result.message}
+        <div className="ml-7 mr-2 mb-2 px-3 py-2 rounded-md bg-fail/[0.06] border border-fail/15 text-[11.5px] leading-relaxed animate-fade-in">
+          <FailureDetail message={result.message} />
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * Parse failure messages for expected/actual patterns (Catch2, Google Test, etc.)
+ * and render them as a mini diff view.
+ */
+function FailureDetail({ message }: { message: string }) {
+  // Catch2: "REQUIRE( x == y )" with "with expansion: lhs == rhs"
+  const expansionMatch = message.match(/with expansion:\s*(.+?)\s*==\s*(.+?)(?:\n|$)/);
+  // Google Test: "Expected: x\n  Actual: y"
+  const gtestMatch = message.match(/Expected:\s*(.+)\n\s*Actual:\s*(.+)/);
+  // Generic: "expected X but got Y"
+  const genericMatch = message.match(/expected\s+(.+?)\s+but\s+got\s+(.+?)(?:\n|$)/i);
+
+  const diff = expansionMatch || gtestMatch || genericMatch;
+
+  if (diff) {
+    const [, expected, actual] = diff;
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="text-fail/90 whitespace-pre-wrap break-words">{message}</div>
+        <div className="mt-1 flex flex-col gap-1 text-[11px] font-mono">
+          <div className="flex items-baseline gap-2">
+            <span className="text-good/70 text-[10px] uppercase tracking-wider w-16 shrink-0">Expected</span>
+            <span className="text-good bg-good/[0.08] px-2 py-0.5 rounded">{expected.trim()}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-fail/70 text-[10px] uppercase tracking-wider w-16 shrink-0">Actual</span>
+            <span className="text-fail bg-fail/[0.08] px-2 py-0.5 rounded">{actual.trim()}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <div className="text-fail/90 whitespace-pre-wrap break-words">{message}</div>;
 }
 
 function SummaryBadge({ summary }: { summary: string }) {

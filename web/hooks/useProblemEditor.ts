@@ -30,6 +30,7 @@ export interface ProblemEditorState {
   compiling: boolean;
   sseError: string | null;
   showConfetti: boolean;
+  modifiedFiles: Set<string>;
 
   /* Status */
   status: Status;
@@ -105,9 +106,17 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     const firstName = Object.keys(effective)[0] ?? '';
     setActiveFileRaw(firstName);
     setOutputLines([]);
+    setTestResults([]);
     setOutputLabel('');
     setSummary(null);
     setStatusState(loadStatus(problem.id));
+
+    // Check which files are modified vs starter
+    const modified = new Set<string>();
+    for (const [name, starter] of Object.entries(problem.files)) {
+      if (effective[name] !== starter) modified.add(name);
+    }
+    setModifiedFiles(modified);
 
     // Try loading into Monaco — will no-op if editor hasn't mounted yet
     loadIntoModels();
@@ -137,10 +146,21 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     [models, problem.files],
   );
 
+  const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
+
   const onContentChange = useCallback(
     (filename: string, content: string) => {
       const starter = starterRef.current[filename] ?? '';
       saveCode(problemIdRef.current, filename, content, starter);
+      setModifiedFiles(prev => {
+        const next = new Set(prev);
+        if (content !== starter) {
+          next.add(filename);
+        } else {
+          next.delete(filename);
+        }
+        return next;
+      });
     },
     [],
   );
@@ -196,6 +216,7 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
               name: ev.name,
               status: ev.status,
               message: ev.message,
+              duration: ev.durationMs,
             }]);
           } else if (ev.type === 'result') {
             const line = `${ev.passed}/${ev.total} tests passed`;
@@ -278,6 +299,7 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     running,
     compiling,
     showConfetti,
+    modifiedFiles,
     sseError: sse.error,
     status,
     cursorLine,

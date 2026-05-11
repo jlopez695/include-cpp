@@ -5,6 +5,8 @@ import Link from 'next/link';
 import type { ProblemSummary, Status } from '@/lib/types';
 import { loadStatus } from '@/lib/storage';
 
+type Filter = 'all' | Status;
+
 function StatusDot({ status }: { status: Status }) {
   if (status === 'solved') {
     return (
@@ -37,6 +39,7 @@ interface SidebarProps {
 
 export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
 
   const statuses = useMemo(() => {
     const s: Record<string, Status> = {};
@@ -48,14 +51,23 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return problems;
-    return problems.filter(
-      p => p.id.toLowerCase().includes(q) || p.title.toLowerCase().includes(q),
-    );
-  }, [problems, search]);
+    return problems.filter(p => {
+      if (q && !p.id.toLowerCase().includes(q) && !p.title.toLowerCase().includes(q)) return false;
+      if (filter !== 'all' && statuses[p.id] !== filter) return false;
+      return true;
+    });
+  }, [problems, search, filter, statuses]);
 
   const solvedCount = Object.values(statuses).filter(s => s === 'solved').length;
+  const attemptedCount = Object.values(statuses).filter(s => s === 'attempted').length;
   const progressPct = problems.length > 0 ? (solvedCount / problems.length) * 100 : 0;
+
+  const FILTERS: { value: Filter; label: string; count: number }[] = [
+    { value: 'all', label: 'All', count: problems.length },
+    { value: 'unsolved', label: 'Todo', count: problems.length - solvedCount - attemptedCount },
+    { value: 'attempted', label: 'WIP', count: attemptedCount },
+    { value: 'solved', label: 'Done', count: solvedCount },
+  ];
 
   return (
     <aside
@@ -106,6 +118,24 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
         </div>
       </div>
 
+      {/* Status filter tabs */}
+      <div className="flex px-2 py-1.5 gap-0.5 border-b border-border-soft shrink-0">
+        {FILTERS.map(f => (
+          <button
+            key={f.value}
+            onClick={() => setFilter(f.value)}
+            className={`flex-1 text-[10px] font-medium py-1 rounded-md transition-colors ${
+              filter === f.value
+                ? 'bg-accent/15 text-accent'
+                : 'text-text-mute hover:text-text-dim hover:bg-white/[0.03]'
+            }`}
+          >
+            {f.label}
+            <span className="ml-1 opacity-60">{f.count}</span>
+          </button>
+        ))}
+      </div>
+
       {/* List */}
       <div className="flex-1 overflow-y-auto py-1" role="list">
         {filtered.length === 0 && (
@@ -113,7 +143,7 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
             No matching problems
           </div>
         )}
-        {filtered.map((p, i) => {
+        {filtered.map((p) => {
           const isActive = activeId === p.id;
           const status = statuses[p.id] ?? 'unsolved';
           return (

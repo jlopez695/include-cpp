@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import type { ProblemDetail, ProblemSummary } from '@/lib/types';
 import { useProblemEditor } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
@@ -10,6 +10,7 @@ import { EditorPanel } from '@/components/EditorPanel';
 import { StatusBar } from '@/components/StatusBar';
 import { HealthBanner } from '@/components/HealthBanner';
 import { Confetti } from '@/components/Confetti';
+import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { langForFile } from '@/lib/lang';
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
 export function ProblemWorkspace({ problem, problems }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const editor = useProblemEditor(problem);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const horizontal = useResizable(
     'split-h',
@@ -28,6 +30,19 @@ export function ProblemWorkspace({ problem, problems }: Props) {
     () => bodyRef.current,
     [20, 70],
   );
+
+  // Global Cmd+? to open shortcuts overlay
+  const toggleShortcuts = useCallback(() => setShowShortcuts(v => !v), []);
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '?') {
+        e.preventDefault();
+        toggleShortcuts();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [toggleShortcuts]);
 
   return (
     <>
@@ -71,6 +86,7 @@ export function ProblemWorkspace({ problem, problems }: Props) {
       />
 
       {editor.showConfetti && <Confetti onDone={editor.dismissConfetti} />}
+      <KeyboardShortcuts open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </>
   );
 }

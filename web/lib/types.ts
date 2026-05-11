@@ -40,7 +40,7 @@ export type StreamEvent =
   | { kind: 'done'; passed: number; total: number; exitCode: number };
 
 export type SentinelEvent =
-  | { type: 'test'; name: string; status: 'pass' | 'fail' | 'crash' | 'skip'; message?: string }
+  | { type: 'test'; name: string; status: 'pass' | 'fail' | 'crash' | 'skip'; message?: string; durationMs?: number }
   | { type: 'result'; passed: number; total: number };
 
 export interface FileTab {

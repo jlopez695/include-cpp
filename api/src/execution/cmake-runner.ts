@@ -128,8 +128,8 @@ export async function runCmake(
           emit({
             kind: 'sentinel',
             event: t.failure
-              ? { type: 'test', name: t.name, status: 'fail', message: t.failure }
-              : { type: 'test', name: t.name, status: 'pass' },
+              ? { type: 'test', name: t.name, status: 'fail', message: t.failure, durationMs: t.durationMs ?? undefined }
+              : { type: 'test', name: t.name, status: 'pass', durationMs: t.durationMs ?? undefined },
           });
         }
         emit({ kind: 'sentinel', event: { type: 'result', passed, total } });

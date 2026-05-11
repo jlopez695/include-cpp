@@ -3,6 +3,7 @@ import { XMLParser } from 'fast-xml-parser';
 export interface JUnitTest {
   name: string;
   failure: string | null;
+  durationMs: number | null;
 }
 
 export interface JUnitResult {
@@ -51,7 +52,9 @@ export function parseJUnit(xml: string): JUnitResult {
         failure = 'failed';
       }
     }
-    return { name: tc['@_name'] ?? 'unnamed', failure };
+    const timeStr = tc['@_time'];
+    const durationMs = timeStr != null ? Math.round(parseFloat(timeStr) * 1000) : null;
+    return { name: tc['@_name'] ?? 'unnamed', failure, durationMs };
   });
 
   return {
