@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import type { ProblemDetail } from '@/lib/types';
+import type { ProblemDetail, ProblemSummary } from '@/lib/types';
 import { useProblemEditor } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
 import { TopBar } from '@/components/TopBar';
@@ -9,13 +9,15 @@ import { ProblemDescription } from '@/components/ProblemDescription';
 import { EditorPanel } from '@/components/EditorPanel';
 import { StatusBar } from '@/components/StatusBar';
 import { HealthBanner } from '@/components/HealthBanner';
+import { Confetti } from '@/components/Confetti';
 import { langForFile } from '@/lib/lang';
 
 interface Props {
   problem: ProblemDetail;
+  problems: ProblemSummary[];
 }
 
-export function ProblemWorkspace({ problem }: Props) {
+export function ProblemWorkspace({ problem, problems }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const editor = useProblemEditor(problem);
 
@@ -30,7 +32,7 @@ export function ProblemWorkspace({ problem }: Props) {
   return (
     <>
       <HealthBanner />
-      <TopBar problem={problem} status={editor.status} />
+      <TopBar problem={problem} problems={problems} status={editor.status} />
 
       {/* Body: description | resizer | editor */}
       <div className="flex-1 flex overflow-hidden min-h-0" ref={bodyRef}>
@@ -67,6 +69,8 @@ export function ProblemWorkspace({ problem }: Props) {
         cursorCol={editor.cursorCol}
         compiling={editor.compiling}
       />
+
+      {editor.showConfetti && <Confetti onDone={editor.dismissConfetti} />}
     </>
   );
 }

@@ -1,16 +1,55 @@
 'use client';
 
-import type { ProblemDetail, Status } from '@/lib/types';
+import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import type { ProblemDetail, ProblemSummary, Status } from '@/lib/types';
 
 interface TopBarProps {
   problem: ProblemDetail;
+  problems: ProblemSummary[];
   status: Status;
 }
 
-export function TopBar({ problem, status }: TopBarProps) {
+export function TopBar({ problem, problems, status }: TopBarProps) {
+  const router = useRouter();
+
+  const { prev, next } = useMemo(() => {
+    const idx = problems.findIndex(p => p.id === problem.id);
+    return {
+      prev: idx > 0 ? problems[idx - 1] : null,
+      next: idx < problems.length - 1 ? problems[idx + 1] : null,
+    };
+  }, [problems, problem.id]);
+
   return (
     <header className="h-12 flex items-center justify-between px-5 bg-bg-1 border-b border-border-soft shrink-0">
       <div className="flex items-center gap-3 min-w-0">
+        {/* Prev/Next nav */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={() => prev && router.push(`/problems/${prev.id}`)}
+            disabled={!prev}
+            title={prev ? `Previous: ${prev.title}` : 'No previous problem'}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-text-dim hover:text-text-bright hover:bg-bg-3 disabled:opacity-25 disabled:cursor-default transition-colors"
+            aria-label="Previous problem"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M8.5 3.5L5 7L8.5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            onClick={() => next && router.push(`/problems/${next.id}`)}
+            disabled={!next}
+            title={next ? `Next: ${next.title}` : 'No next problem'}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-text-dim hover:text-text-bright hover:bg-bg-3 disabled:opacity-25 disabled:cursor-default transition-colors"
+            aria-label="Next problem"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M5.5 3.5L9 7L5.5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+
         <span className="text-[11px] font-bold tracking-widest text-accent uppercase bg-accent/10 px-2.5 py-1 rounded-md">
           {problem.id}
         </span>

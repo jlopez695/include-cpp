@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { ToastProvider } from '@/components/Toast';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full">
-      <body className="h-full">{children}</body>
+      <body className="h-full">
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }

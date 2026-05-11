@@ -249,6 +249,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
       >
         <OutputPanel
           lines={editor.outputLines}
+          testResults={editor.testResults}
           label={editor.outputLabel}
           summary={editor.summary}
         />

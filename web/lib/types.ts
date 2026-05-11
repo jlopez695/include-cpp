@@ -47,3 +47,17 @@ export interface FileTab {
   name: string;
   editable: boolean;
 }
+
+export interface TestResult {
+  name: string;
+  status: 'pass' | 'fail' | 'crash' | 'skip';
+  message?: string;
+  duration?: number;
+}
+
+export interface Diagnostic {
+  line: number;
+  col: number;
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+}

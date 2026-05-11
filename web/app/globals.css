@@ -203,6 +203,12 @@ kbd {
 }
 .animate-pop-in { animation: pop-in 0.2s ease-out; }
 
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up { animation: slide-up 0.25s ease-out; }
+
 /* ── Scrollbars ── */
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track { background: transparent; }

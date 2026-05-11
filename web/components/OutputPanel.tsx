@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import type { TestResult } from '@/lib/types';
 
 interface OutputLine {
   text: string;
@@ -9,20 +10,24 @@ interface OutputLine {
 
 interface OutputPanelProps {
   lines: OutputLine[];
+  testResults: TestResult[];
   label: string;
   summary: string | null;
 }
 
-export function OutputPanel({ lines, label, summary }: OutputPanelProps) {
+export function OutputPanel({ lines, testResults, label, summary }: OutputPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new output
   useEffect(() => {
     const el = scrollRef.current;
     if (el) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [lines.length]);
+  }, [lines.length, testResults.length]);
+
+  const hasTests = testResults.length > 0;
+  const hasLines = lines.length > 0;
+  const isEmpty = !hasTests && !hasLines;
 
   return (
     <div
@@ -37,7 +42,12 @@ export function OutputPanel({ lines, label, summary }: OutputPanelProps) {
           <span className="text-[10px] font-bold tracking-[1.4px] uppercase text-text-mute">
             {label || 'Output'}
           </span>
-          {lines.length > 0 && (
+          {hasTests && (
+            <span className="text-[10px] text-text-mute/60 tabular-nums">
+              {testResults.length} tests
+            </span>
+          )}
+          {!hasTests && hasLines && (
             <span className="text-[10px] text-text-mute/60 tabular-nums">
               {lines.length} lines
             </span>
@@ -48,18 +58,92 @@ export function OutputPanel({ lines, label, summary }: OutputPanelProps) {
 
       {/* Content */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 font-mono text-[12.5px] bg-[#111114]">
-        {lines.length === 0 ? (
+        {isEmpty ? (
           <EmptyState />
         ) : (
           <div className="leading-[1.7]">
-            {lines.map((line, i) => (
-              <div key={i} className={`whitespace-pre-wrap break-words ${line.cls}`}>
-                {line.text}
+            {/* Raw output lines (compile errors, run output) */}
+            {hasLines && (
+              <div className={hasTests ? 'mb-3' : ''}>
+                {lines.map((line, i) => (
+                  <div key={i} className={`whitespace-pre-wrap break-words ${line.cls}`}>
+                    {line.text}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Structured test results */}
+            {hasTests && (
+              <div className="flex flex-col gap-0.5">
+                {testResults.map((t, i) => (
+                  <TestResultRow key={i} result={t} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function TestResultRow({ result }: { result: TestResult }) {
+  const [expanded, setExpanded] = useState(false);
+  const passed = result.status === 'pass';
+  const hasFail = !passed && !!result.message;
+
+  return (
+    <div className="animate-fade-in">
+      <button
+        onClick={() => hasFail && setExpanded(e => !e)}
+        className={`flex items-center gap-2 w-full text-left py-1.5 px-2 rounded-md transition-colors ${
+          hasFail ? 'cursor-pointer hover:bg-white/[0.03]' : 'cursor-default'
+        }`}
+        aria-expanded={hasFail ? expanded : undefined}
+      >
+        {/* Status icon */}
+        {passed ? (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-pass shrink-0">
+            <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" opacity="0.3" />
+            <path d="M4 7.2L6 9.2L10 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-fail shrink-0">
+            <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" opacity="0.3" />
+            <path d="M5 5L9 9M9 5L5 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          </svg>
+        )}
+
+        {/* Test name */}
+        <span className={`text-[12px] flex-1 truncate ${passed ? 'text-text-base' : 'text-text-bright'}`}>
+          {result.name}
+        </span>
+
+        {/* Duration */}
+        {result.duration != null && (
+          <span className="text-[10px] text-text-mute tabular-nums shrink-0">
+            {result.duration < 1000 ? `${result.duration}ms` : `${(result.duration / 1000).toFixed(1)}s`}
+          </span>
+        )}
+
+        {/* Expand chevron */}
+        {hasFail && (
+          <svg
+            width="12" height="12" viewBox="0 0 12 12" fill="none"
+            className={`text-text-mute shrink-0 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
+          >
+            <path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </button>
+
+      {/* Expanded failure detail */}
+      {expanded && result.message && (
+        <div className="ml-7 mr-2 mb-2 px-3 py-2 rounded-md bg-fail/[0.06] border border-fail/15 text-[11.5px] text-fail/90 whitespace-pre-wrap break-words leading-relaxed animate-fade-in">
+          {result.message}
+        </div>
+      )}
     </div>
   );
 }

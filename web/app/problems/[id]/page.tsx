@@ -17,7 +17,10 @@ export async function generateStaticParams() {
 
 export default async function ProblemPage({ params }: Props) {
   const { id } = await params;
-  const problem = await fetchProblem(id);
+  const [problem, problems] = await Promise.all([
+    fetchProblem(id),
+    fetchProblems(),
+  ]);
 
   return (
     <Suspense
@@ -27,7 +30,7 @@ export default async function ProblemPage({ params }: Props) {
         </div>
       }
     >
-      <ProblemWorkspace problem={problem} />
+      <ProblemWorkspace problem={problem} problems={problems} />
     </Suspense>
   );
 }

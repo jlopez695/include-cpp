@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { ProblemDetail, SentinelEvent, Status, FileTab } from '@/lib/types';
+import type { ProblemDetail, SentinelEvent, Status, FileTab, TestResult } from '@/lib/types';
 import { inferStatus, buildSummary } from '@/lib/status';
 import { loadCode, saveCode, clearCode, loadStatus, saveStatus } from '@/lib/storage';
+import { parseDiagnostics } from '@/lib/diagnostics';
 import { useSSE } from './useSSE';
 import { useMonacoModels } from './useMonacoModels';
 
@@ -22,11 +23,13 @@ export interface ProblemEditorState {
 
   /* Output */
   outputLines: OutputLine[];
+  testResults: TestResult[];
   outputLabel: string;
   summary: string | null;
   running: boolean;
   compiling: boolean;
   sseError: string | null;
+  showConfetti: boolean;
 
   /* Status */
   status: Status;
@@ -46,6 +49,7 @@ export interface ProblemEditorState {
   setCursor: (line: number, col: number) => void;
   onContentChange: (filename: string, content: string) => void;
   loadIntoModels: () => void;
+  dismissConfetti: () => void;
 }
 
 export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
@@ -54,10 +58,12 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
 
   const [activeFile, setActiveFileRaw] = useState<string>('');
   const [outputLines, setOutputLines] = useState<OutputLine[]>([]);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [outputLabel, setOutputLabel] = useState('');
   const [summary, setSummary] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [compiling, setCompiling] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const [status, setStatusState] = useState<Status>('unsolved');
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorCol, setCursorCol] = useState(1);
@@ -67,6 +73,7 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
   const problemIdRef = useRef(problem.id);
   const effectiveFilesRef = useRef<Record<string, string>>({});
   const readOnlyFilesRef = useRef<Record<string, string>>({});
+  const stderrBufferRef = useRef('');
 
   // Load files into Monaco models — safe to call before or after monaco init.
   // No-ops if Monaco hasn't mounted yet; EditorPanel calls this again after init.
@@ -157,28 +164,41 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     return '';
   }, []);
 
+  const allFileNames = useMemo(
+    () => [...Object.keys(problem.files), ...Object.keys(problem.readOnlyFiles)],
+    [problem.files, problem.readOnlyFiles],
+  );
+
   const run = useCallback(
     (mode: 'run' | 'test') => {
       if (running) return;
       setRunning(true);
       setCompiling(true);
       setOutputLines([]);
+      setTestResults([]);
+      setShowConfetti(false);
       setOutputLabel(mode === 'run' ? 'Run Output' : 'Test Results');
       setSummary(null);
+      stderrBufferRef.current = '';
+      models.clearAllDiagnostics();
 
       const files = models.getAllEditableContent(editableNames);
 
       sse.run(problem.id, files, mode, {
         onStdout: data => appendOutput(data),
-        onStderr: data => appendOutput(data, 'text-fail'),
+        onStderr: data => {
+          stderrBufferRef.current += data;
+          appendOutput(data, 'text-fail');
+        },
         onSentinel: (ev: SentinelEvent) => {
           if (ev.type === 'test') {
-            const prefix = ev.status === 'pass' ? '[PASS]' : ev.status === 'crash' ? '[CRASH]' : '[FAIL]';
-            const line = `${prefix} ${ev.name}${ev.message ? `: ${ev.message}` : ''}`;
-            const cls = ev.status === 'pass' ? 'text-pass font-semibold' : 'text-fail font-semibold';
-            setOutputLines(prev => [...prev, { text: line, cls }]);
+            setTestResults(prev => [...prev, {
+              name: ev.name,
+              status: ev.status,
+              message: ev.message,
+            }]);
           } else if (ev.type === 'result') {
-            const line = `\n${ev.passed}/${ev.total} tests passed`;
+            const line = `${ev.passed}/${ev.total} tests passed`;
             setOutputLines(prev => [
               ...prev,
               { text: '', cls: '' },
@@ -187,7 +207,16 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
           }
         },
         onCompileStart: () => setCompiling(true),
-        onCompileEnd: () => setCompiling(false),
+        onCompileEnd: (exitCode) => {
+          setCompiling(false);
+          // Parse compiler diagnostics from stderr and set Monaco markers
+          if (stderrBufferRef.current) {
+            const diagMap = parseDiagnostics(stderrBufferRef.current, allFileNames);
+            for (const [filename, diags] of diagMap) {
+              models.setDiagnostics(filename, diags);
+            }
+          }
+        },
         onRunStart: () => {},
         onRunEnd: () => {},
         onDone: (passed, total, exitCode) => {
@@ -196,11 +225,12 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
             const doneEvent = { kind: 'done' as const, passed, total, exitCode };
             const newStatus = inferStatus(doneEvent);
             const newSummary = buildSummary(doneEvent);
-            // Optimistic: update UI immediately
             setStatusState(newStatus);
             setSummary(newSummary);
-            // Fire-and-forget: persist
             saveStatus(problem.id, newStatus, passed, total);
+            if (total > 0 && passed === total) {
+              setShowConfetti(true);
+            }
           }
         },
         onError: msg => {
@@ -210,7 +240,7 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
         },
       });
     },
-    [running, models, editableNames, sse, problem.id, appendOutput],
+    [running, models, editableNames, allFileNames, sse, problem.id, appendOutput],
   );
 
   const abort = useCallback(() => {
@@ -233,6 +263,8 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     setCursorCol(col);
   }, []);
 
+  const dismissConfetti = useCallback(() => setShowConfetti(false), []);
+
   return {
     activeFile,
     allFiles,
@@ -240,10 +272,12 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     starterFiles: starterRef.current,
     editableNames,
     outputLines,
+    testResults,
     outputLabel,
     summary,
     running,
     compiling,
+    showConfetti,
     sseError: sse.error,
     status,
     cursorLine,
@@ -256,5 +290,6 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     setCursor,
     onContentChange,
     loadIntoModels,
+    dismissConfetti,
   };
 }

@@ -105,6 +105,40 @@ export function useMonacoModels() {
     [getContent],
   );
 
+  const setDiagnostics = useCallback(
+    (filename: string, diagnostics: Array<{ line: number; col: number; severity: 'error' | 'warning' | 'info'; message: string }>) => {
+      const monaco = monacoRef.current;
+      if (!monaco) return;
+      const model = modelsRef.current.get(filename);
+      if (!model || model.isDisposed()) return;
+
+      const markers = diagnostics.map(d => ({
+        severity:
+          d.severity === 'error' ? monaco.MarkerSeverity.Error
+          : d.severity === 'warning' ? monaco.MarkerSeverity.Warning
+          : monaco.MarkerSeverity.Info,
+        startLineNumber: d.line,
+        startColumn: d.col,
+        endLineNumber: d.line,
+        endColumn: model.getLineMaxColumn(d.line),
+        message: d.message,
+      }));
+
+      monaco.editor.setModelMarkers(model, 'compiler', markers);
+    },
+    [],
+  );
+
+  const clearAllDiagnostics = useCallback(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) return;
+    for (const model of modelsRef.current.values()) {
+      if (!model.isDisposed()) {
+        monaco.editor.setModelMarkers(model, 'compiler', []);
+      }
+    }
+  }, []);
+
   const disposeAll = useCallback(() => {
     for (const model of modelsRef.current.values()) {
       if (!model.isDisposed()) model.dispose();
@@ -124,6 +158,8 @@ export function useMonacoModels() {
     updateContent,
     getContent,
     getAllEditableContent,
+    setDiagnostics,
+    clearAllDiagnostics,
     disposeAll,
     editorRef,
   };
