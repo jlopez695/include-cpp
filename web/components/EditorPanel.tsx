@@ -4,6 +4,8 @@ import { useRef, useCallback, useState } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { ProblemEditorState } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
+import { loadUiState, saveUiState } from '@/lib/storage';
+import { clampFontSize } from '@/lib/editor-settings';
 import { OutputPanel } from './OutputPanel';
 
 interface EditorPanelProps {
@@ -41,6 +43,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
   const monacoInstanceRef = useRef<any>(null);
   const [minimap, setMinimap] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
+  const [fontSize, setFontSize] = useState(() => clampFontSize(loadUiState('fontSize', 13)));
   const [splitFile, setSplitFile] = useState<string | null>(null);
 
   const outputResize = useResizable(
@@ -138,7 +141,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
             theme="vs-dark"
             onMount={handleEditorMount}
             options={{
-              fontSize: 13,
+              fontSize,
               fontFamily: '"JetBrains Mono", "Fira Code", "Menlo", monospace',
               fontLigatures: true,
               minimap: { enabled: minimap },
@@ -273,6 +276,37 @@ export function EditorPanel({ editor }: EditorPanelProps) {
         )}
 
         <div className="flex-1" />
+        <div className="flex items-center gap-0.5 mr-1">
+          <button
+            onClick={() => {
+              const next = clampFontSize(fontSize - 1);
+              setFontSize(next);
+              saveUiState('fontSize', next);
+              editor.models.editorRef.current?.updateOptions({ fontSize: next });
+            }}
+            disabled={fontSize <= 10}
+            title="Decrease font size"
+            className="w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold text-text-mute hover:text-text-dim hover:bg-bg-3 disabled:opacity-30 disabled:cursor-default transition-colors"
+            aria-label="Decrease font size"
+          >
+            A<span className="text-[9px]">-</span>
+          </button>
+          <span className="text-[10px] text-text-mute tabular-nums w-5 text-center">{fontSize}</span>
+          <button
+            onClick={() => {
+              const next = clampFontSize(fontSize + 1);
+              setFontSize(next);
+              saveUiState('fontSize', next);
+              editor.models.editorRef.current?.updateOptions({ fontSize: next });
+            }}
+            disabled={fontSize >= 24}
+            title="Increase font size"
+            className="w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold text-text-mute hover:text-text-dim hover:bg-bg-3 disabled:opacity-30 disabled:cursor-default transition-colors"
+            aria-label="Increase font size"
+          >
+            A<span className="text-[9px]">+</span>
+          </button>
+        </div>
         <button
           onClick={() => {
             setWordWrap(v => !v);
