@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
+import { initVimMode } from 'monaco-vim';
 import type { ProblemEditorState } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
 import { loadUiState, saveUiState } from '@/lib/storage';
@@ -10,6 +11,8 @@ import { OutputPanel } from './OutputPanel';
 
 interface EditorPanelProps {
   editor: ProblemEditorState;
+  vimMode: boolean;
+  onVimToggle: () => void;
 }
 
 function FileIcon({ editable }: { editable: boolean }) {
@@ -38,9 +41,13 @@ function Spinner() {
   );
 }
 
-export function EditorPanel({ editor }: EditorPanelProps) {
+export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const monacoInstanceRef = useRef<any>(null);
+  const editorInstanceRef = useRef<any>(null);
+  const vimAdapterRef = useRef<any>(null);
+  const vimStatusRef = useRef<HTMLDivElement>(null);
+  const [editorReady, setEditorReady] = useState(false);
   const [minimap, setMinimap] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
   const [fontSize, setFontSize] = useState(() => clampFontSize(loadUiState('fontSize', 13)));
@@ -55,9 +62,26 @@ export function EditorPanel({ editor }: EditorPanelProps) {
     [80, 600],
   );
 
+  // Init/dispose vim mode when toggled or editor becomes ready
+  useEffect(() => {
+    const ed = editorInstanceRef.current;
+    if (!editorReady || !ed) return;
+
+    if (vimMode) {
+      const adapter = initVimMode(ed, vimStatusRef.current);
+      vimAdapterRef.current = adapter;
+      return () => {
+        adapter.dispose();
+        vimAdapterRef.current = null;
+      };
+    }
+  }, [vimMode, editorReady]);
+
   const handleEditorMount: OnMount = useCallback(
     (editorInstance, monaco) => {
       monacoInstanceRef.current = monaco;
+      editorInstanceRef.current = editorInstance;
+      setEditorReady(true);
       editor.models.init(editorInstance, monaco);
       editor.loadIntoModels();
 
@@ -216,6 +240,14 @@ export function EditorPanel({ editor }: EditorPanelProps) {
         )}
       </div>
 
+      {/* Vim status bar */}
+      {vimMode && (
+        <div
+          ref={vimStatusRef}
+          className="h-6 bg-[#1e1e1e] text-text-dim text-[12px] font-mono px-3 flex items-center border-t border-border-soft/50"
+        />
+      )}
+
       {/* Action bar */}
       <div className="h-12 flex items-center gap-2 px-4 bg-bg-1 border-t border-border-soft shrink-0">
         {!editor.running ? (
@@ -277,6 +309,16 @@ export function EditorPanel({ editor }: EditorPanelProps) {
         )}
 
         <div className="flex-1" />
+        <button
+          onClick={onVimToggle}
+          title={vimMode ? 'Disable Vim mode' : 'Enable Vim mode'}
+          className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+            vimMode ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
+          }`}
+          aria-label="Toggle Vim mode"
+        >
+          VIM
+        </button>
         <div className="flex items-center gap-0.5 mr-1">
           <button
             onClick={() => {

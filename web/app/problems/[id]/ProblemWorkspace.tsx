@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import type { ProblemDetail, ProblemSummary } from '@/lib/types';
 import { useProblemEditor } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
+import { loadUiState, saveUiState } from '@/lib/storage';
 import { TopBar } from '@/components/TopBar';
 import { ProblemDescription } from '@/components/ProblemDescription';
 import { EditorPanel } from '@/components/EditorPanel';
@@ -22,6 +23,19 @@ export function ProblemWorkspace({ problem, problems }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const editor = useProblemEditor(problem);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [vimMode, setVimMode] = useState(false);
+
+  useEffect(() => {
+    setVimMode(loadUiState('vimMode', false));
+  }, []);
+
+  const toggleVim = useCallback(() => {
+    setVimMode(prev => {
+      const next = !prev;
+      saveUiState('vimMode', next);
+      return next;
+    });
+  }, []);
 
   const horizontal = useResizable(
     'split-h',
@@ -77,7 +91,7 @@ export function ProblemWorkspace({ problem, problems }: Props) {
         />
 
         {/* Editor panel */}
-        <EditorPanel editor={editor} />
+        <EditorPanel editor={editor} vimMode={vimMode} onVimToggle={toggleVim} />
       </div>
 
       <StatusBar
@@ -87,6 +101,7 @@ export function ProblemWorkspace({ problem, problems }: Props) {
         cursorLine={editor.cursorLine}
         cursorCol={editor.cursorCol}
         compiling={editor.compiling}
+        vimMode={vimMode}
       />
 
       {editor.showConfetti && <Confetti onDone={editor.dismissConfetti} />}

@@ -10,6 +10,7 @@ interface StatusBarProps {
   cursorLine: number;
   cursorCol: number;
   compiling: boolean;
+  vimMode?: boolean;
 }
 
 export function StatusBar({
@@ -19,6 +20,7 @@ export function StatusBar({
   cursorLine,
   cursorCol,
   compiling,
+  vimMode,
 }: StatusBarProps) {
   const healthStatus = useHealthCheck();
   const [dark, setDark] = useState(true);
@@ -76,6 +78,11 @@ export function StatusBar({
 
       {/* Right cluster */}
       <div className="flex items-center gap-3">
+        {vimMode && (
+          <span className="px-1.5 py-px rounded bg-accent/15 text-accent text-[10px] font-bold tracking-wider">
+            VIM
+          </span>
+        )}
         {compiling && (
           <span className="flex items-center gap-1.5 text-accent animate-pulse-soft">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="animate-spin">
