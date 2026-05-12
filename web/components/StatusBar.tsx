@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useHealthCheck } from '@/hooks/useHealthCheck';
 
 interface StatusBarProps {
   activeFile: string;
@@ -19,6 +20,7 @@ export function StatusBar({
   cursorCol,
   compiling,
 }: StatusBarProps) {
+  const healthStatus = useHealthCheck();
   const [dark, setDark] = useState(true);
 
   useEffect(() => {
@@ -49,7 +51,18 @@ export function StatusBar({
       {/* Left cluster */}
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-good/80" title="Backend connected" />
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              healthStatus === 'connected' ? 'bg-good/80' :
+              healthStatus === 'degraded' ? 'bg-warn/80' :
+              'bg-fail/80'
+            }`}
+            title={
+              healthStatus === 'connected' ? 'Backend connected' :
+              healthStatus === 'degraded' ? 'Backend degraded' :
+              'Backend disconnected'
+            }
+          />
           <span className="text-text-mute">API</span>
         </span>
         <span className="text-border-strong">|</span>
