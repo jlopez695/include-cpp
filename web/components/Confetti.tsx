@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { prefersReducedMotion } from '@/lib/accessibility';
 
 interface ConfettiProps {
   onDone: () => void;
@@ -27,6 +28,11 @@ export function Confetti({ onDone }: ConfettiProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (prefersReducedMotion()) {
+      onDone();
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
