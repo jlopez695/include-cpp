@@ -51,10 +51,18 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
   const [editorReady, setEditorReady] = useState(false);
   const [minimap, setMinimap] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
-  const [fontSize, setFontSize] = useState(() => clampFontSize(loadUiState('fontSize', 13)));
-  const [tabSize, setTabSize] = useState(() => loadUiState<number>('tabSize', 2));
+  const [fontSize, setFontSize] = useState(13);
+  const [tabSize, setTabSize] = useState(2);
   const [splitFile, setSplitFile] = useState<string | null>(null);
   const [diffMode, setDiffMode] = useState(false);
+
+  // Load persisted editor settings client-side to avoid hydration mismatch
+  useEffect(() => {
+    const savedFontSize = clampFontSize(loadUiState('fontSize', 13));
+    const savedTabSize = loadUiState<number>('tabSize', 2);
+    setFontSize(savedFontSize);
+    setTabSize(savedTabSize);
+  }, []);
 
   const outputResize = useResizable(
     'output-height',
