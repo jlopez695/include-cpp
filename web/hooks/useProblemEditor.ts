@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { ProblemDetail, SentinelEvent, Status, FileTab, TestResult } from '@/lib/types';
 import { inferStatus, buildSummary } from '@/lib/status';
-import { loadCode, saveCode, clearCode, loadStatus, saveStatus, recordSolveDate } from '@/lib/storage';
+import { loadCode, saveCode, clearCode, loadStatus, saveStatus, recordSolveDate, saveBestResult } from '@/lib/storage';
 import { parseDiagnostics } from '@/lib/diagnostics';
 import { useSSE } from './useSSE';
 import { useMonacoModels } from './useMonacoModels';
@@ -250,6 +250,7 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
             setStatusState(newStatus);
             setSummary(newSummary);
             saveStatus(problem.id, newStatus, passed, total);
+            saveBestResult(problem.id, passed, total);
             if (total > 0 && passed === total) {
               setShowConfetti(true);
               recordSolveDate();

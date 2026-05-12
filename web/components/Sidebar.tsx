@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ProblemSummary, Status } from '@/lib/types';
-import { loadStatus, getStreak, getBookmarkedIds, toggleBookmark } from '@/lib/storage';
+import { loadStatus, getStreak, getBookmarkedIds, toggleBookmark, loadBestResult, type BestResult } from '@/lib/storage';
 import { pickRandom } from '@/lib/random-pick';
 import { ProgressDashboard } from './ProgressDashboard';
 
@@ -48,14 +48,19 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
 
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const [bestResults, setBestResults] = useState<Record<string, BestResult>>({});
 
-  // Load statuses and bookmarks client-side only to avoid hydration mismatch
+  // Load statuses, bookmarks, and best results client-side only to avoid hydration mismatch
   useEffect(() => {
     const s: Record<string, Status> = {};
+    const b: Record<string, BestResult> = {};
     for (const p of problems) {
       s[p.id] = statusOverrides?.[p.id] ?? loadStatus(p.id);
+      const best = loadBestResult(p.id);
+      if (best) b[p.id] = best;
     }
     setStatuses(s);
+    setBestResults(b);
     setBookmarks(new Set(getBookmarkedIds()));
   }, [problems, statusOverrides]);
 
@@ -192,6 +197,7 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
           const isActive = activeId === p.id;
           const status = statuses[p.id] ?? 'unsolved';
           const starred = bookmarks.has(p.id);
+          const best = bestResults[p.id];
           return (
             <div key={p.id} className="relative group" role="listitem">
               <Link
@@ -205,11 +211,16 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
                 <StatusDot status={status} />
                 <div className="flex flex-col min-w-0 gap-0.5 flex-1">
                   <div
-                    className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${
+                    className={`text-[10px] font-semibold tracking-wider uppercase transition-colors flex items-center gap-1.5 ${
                       isActive ? 'text-accent' : 'text-text-mute group-hover:text-text-dim'
                     }`}
                   >
                     {p.id}
+                    {best && status !== 'solved' && (
+                      <span className="text-[9px] font-normal text-text-mute/60 tabular-nums">
+                        {best.passed}/{best.total}
+                      </span>
+                    )}
                   </div>
                   <div className={`text-[13px] leading-tight truncate transition-colors ${
                     isActive ? 'text-text-bright' : 'text-text-base'

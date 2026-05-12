@@ -166,6 +166,31 @@ export function getStreak(): number {
   return streak;
 }
 
+/* ── Best result tracking ── */
+
+export interface BestResult {
+  passed: number;
+  total: number;
+}
+
+export function loadBestResult(problemId: string): BestResult | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(`potd:best:${problemId}`);
+  return raw ? JSON.parse(raw) : null;
+}
+
+/**
+ * Save best result only if it improves on the existing one.
+ * Returns true if the result was saved (new best).
+ */
+export function saveBestResult(problemId: string, passed: number, total: number): boolean {
+  if (typeof window === 'undefined') return false;
+  const existing = loadBestResult(problemId);
+  if (existing && existing.passed >= passed && existing.total === total) return false;
+  localStorage.setItem(`potd:best:${problemId}`, JSON.stringify({ passed, total }));
+  return true;
+}
+
 /* ── Bookmarks ── */
 
 const BOOKMARKS_KEY = 'potd:bookmarks';
