@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import type { TestResult } from '@/lib/types';
+import { formatOutputText } from '@/lib/output-format';
 
 interface OutputLine {
   text: string;
@@ -18,6 +19,7 @@ interface OutputPanelProps {
 
 export function OutputPanel({ lines, testResults, label, summary, onRerunTests }: OutputPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -25,6 +27,14 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests }
       el.scrollTop = el.scrollHeight;
     }
   }, [lines.length, testResults.length]);
+
+  const handleCopy = useCallback(() => {
+    const text = formatOutputText(lines, testResults);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [lines, testResults]);
 
   const hasTests = testResults.length > 0;
   const hasFailed = testResults.some(t => t.status !== 'pass');
@@ -56,6 +66,30 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests }
           )}
         </div>
         <div className="flex items-center gap-2">
+          {!isEmpty && (
+            <button
+              onClick={handleCopy}
+              className="text-[10px] font-medium text-text-mute hover:text-text-base transition-colors flex items-center gap-1"
+              aria-label="Copy output"
+            >
+              {copied ? (
+                <>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M2 5.5L4 7.5L8 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Copied
+                </>
+              ) : (
+                <>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <rect x="3" y="3" width="5.5" height="5.5" rx="0.8" stroke="currentColor" strokeWidth="0.9" />
+                    <path d="M7 3V1.5H1.5V7H3" stroke="currentColor" strokeWidth="0.9" />
+                  </svg>
+                  Copy
+                </>
+              )}
+            </button>
+          )}
           {hasFailed && onRerunTests && (
             <button
               onClick={onRerunTests}
