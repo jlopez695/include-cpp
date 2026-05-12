@@ -44,6 +44,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
   const [minimap, setMinimap] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
   const [fontSize, setFontSize] = useState(() => clampFontSize(loadUiState('fontSize', 13)));
+  const [tabSize, setTabSize] = useState(() => loadUiState<number>('tabSize', 2));
   const [splitFile, setSplitFile] = useState<string | null>(null);
 
   const outputResize = useResizable(
@@ -150,7 +151,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
               renderLineHighlight: editor.isActiveEditable ? 'line' : 'none',
               lineNumbers: 'on',
               wordWrap: wordWrap ? 'on' : 'off',
-              tabSize: 2,
+              tabSize,
               smoothScrolling: true,
               cursorBlinking: 'smooth',
               cursorSmoothCaretAnimation: 'on',
@@ -307,6 +308,19 @@ export function EditorPanel({ editor }: EditorPanelProps) {
             A<span className="text-[9px]">+</span>
           </button>
         </div>
+        <button
+          onClick={() => {
+            const next = tabSize === 2 ? 4 : 2;
+            setTabSize(next);
+            saveUiState('tabSize', next);
+            editor.models.editorRef.current?.updateOptions({ tabSize: next });
+          }}
+          title={`Tab size: ${tabSize} spaces (click to toggle)`}
+          className="px-1.5 py-0.5 rounded text-[10px] font-medium text-text-mute hover:text-text-dim hover:bg-bg-3 transition-colors tabular-nums"
+          aria-label="Toggle tab size"
+        >
+          {tabSize}sp
+        </button>
         <button
           onClick={() => {
             setWordWrap(v => !v);
