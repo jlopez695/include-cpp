@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { initVimMode } from 'monaco-vim';
 import type { ProblemEditorState } from '@/hooks/useProblemEditor';
@@ -53,6 +53,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
   const [fontSize, setFontSize] = useState(() => clampFontSize(loadUiState('fontSize', 13)));
   const [tabSize, setTabSize] = useState(() => loadUiState<number>('tabSize', 2));
   const [splitFile, setSplitFile] = useState<string | null>(null);
+  const [diffMode, setDiffMode] = useState(false);
 
   const outputResize = useResizable(
     'output-height',
@@ -61,6 +62,21 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
     () => panelRef.current,
     [80, 600],
   );
+
+  // Cmd+Shift+D to toggle diff view
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'd') {
+        e.preventDefault();
+        setDiffMode(prev => {
+          if (!prev) setSplitFile(null);
+          return !prev;
+        });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Init/dispose vim mode when toggled or editor becomes ready
   useEffect(() => {
@@ -159,7 +175,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
       </div>
 
       {/* Monaco editor(s) */}
-      <div className={`flex-1 flex overflow-hidden min-h-0 ${splitFile ? 'gap-px bg-border-soft' : ''}`}>
+      <div className={`flex-1 flex overflow-hidden min-h-0 ${(splitFile || diffMode) ? 'gap-px bg-border-soft' : ''}`}>
         <div className="flex-1 relative overflow-hidden bg-[#1e1e1e]">
           <Editor
             defaultLanguage="cpp"
@@ -195,8 +211,44 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
           )}
         </div>
 
+        {/* Diff pane — shows starter code for active file */}
+        {diffMode && editor.isActiveEditable && (
+          <div className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e] animate-fade-in">
+            <div className="flex items-center justify-between px-3 py-1 bg-bg-1 border-b border-border-soft text-[11px] shrink-0">
+              <span className="text-text-mute font-mono">Original: {editor.activeFile}</span>
+              <button
+                onClick={() => setDiffMode(false)}
+                className="text-text-mute hover:text-text-bright transition-colors"
+                aria-label="Close diff view"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M2 2L8 8M8 2L2 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <Editor
+              defaultLanguage="cpp"
+              theme="vs-dark"
+              value={editor.starterFiles[editor.activeFile] ?? ''}
+              options={{
+                fontSize,
+                fontFamily: '"JetBrains Mono", "Fira Code", "Menlo", monospace',
+                fontLigatures: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                readOnly: true,
+                renderLineHighlight: 'none',
+                lineNumbers: 'on',
+                wordWrap: wordWrap ? 'on' : 'off',
+                tabSize,
+                padding: { top: 12, bottom: 12 },
+              }}
+            />
+          </div>
+        )}
+
         {/* Split pane */}
-        {splitFile && (
+        {splitFile && !diffMode && (
           <div className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e] animate-fade-in">
             <div className="flex items-center justify-between px-3 py-1 bg-bg-1 border-b border-border-soft text-[11px] shrink-0">
               <select
@@ -398,10 +450,31 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
         </button>
         <button
           onClick={() => {
+            setDiffMode(prev => {
+              if (!prev) setSplitFile(null);
+              return !prev;
+            });
+          }}
+          title={diffMode ? 'Close diff view (Cmd+Shift+D)' : 'Compare with starter code (Cmd+Shift+D)'}
+          className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+            diffMode ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
+          }`}
+          aria-label="Toggle diff view"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M4 3V11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M10 3V11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M6 5H8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M6 7H8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M6 9H8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+          </svg>
+        </button>
+        <button
+          onClick={() => {
             if (splitFile) {
               setSplitFile(null);
             } else {
-              // Open split with a different file than current
+              setDiffMode(false);
               const other = editor.allFiles.find(f => f.name !== editor.activeFile);
               setSplitFile(other?.name ?? editor.allFiles[0]?.name ?? null);
             }

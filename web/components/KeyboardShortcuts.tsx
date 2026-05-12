@@ -16,6 +16,8 @@ const SHORTCUTS = [
   { keys: ['\u2318', '\u21E7', 'K'], desc: 'Delete line' },
   { keys: ['Alt', '\u2191/\u2193'], desc: 'Move line up/down' },
   { keys: ['\u2318', '[/]'], desc: 'Indent/outdent' },
+  { keys: ['\u2318', '\u21E7', 'D'], desc: 'Diff with starter code' },
+  { keys: ['\u2318', 'B'], desc: 'Toggle sidebar' },
   { keys: ['\u2318', '?'], desc: 'Show this cheatsheet' },
 ];
 
