@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ProblemDetail, SentinelEvent, Status, FileTab, TestResult } from '@/lib/types';
 import { inferStatus, buildSummary } from '@/lib/status';
 import { loadCode, saveCode, clearCode, loadStatus, saveStatus, recordSolveDate, saveBestResult } from '@/lib/storage';
@@ -79,7 +79,7 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
 
   // Load files into Monaco models — safe to call before or after monaco init.
   // No-ops if Monaco hasn't mounted yet; EditorPanel calls this again after init.
-  const loadIntoModels = useCallback(() => {
+  const loadIntoModels = () => {
     if (!models.isReady()) return;
     models.disposeAll();
     models.loadFiles(effectiveFilesRef.current, readOnlyFilesRef.current);
@@ -87,7 +87,7 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     if (firstName) {
       models.switchTo(firstName, false); // first file is always editable
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
   // On problem change: compute files, set state, try loading models
   useEffect(() => {
@@ -121,180 +121,153 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
 
     // Try loading into Monaco — will no-op if editor hasn't mounted yet
     loadIntoModels();
-  }, [problem.id, loadIntoModels]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [problem.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const editableNames = useMemo(() => Object.keys(problem.files), [problem.files]);
+  const editableNames = Object.keys(problem.files);
 
-  const allFiles: FileTab[] = useMemo(
-    () => [
-      ...editableNames.map(name => ({ name, editable: true })),
-      ...Object.keys(problem.readOnlyFiles).map(name => ({ name, editable: false })),
-    ],
-    [editableNames, problem.readOnlyFiles],
-  );
+  const allFiles: FileTab[] = [
+    ...editableNames.map(name => ({ name, editable: true })),
+    ...Object.keys(problem.readOnlyFiles).map(name => ({ name, editable: false })),
+  ];
 
-  const isActiveEditable = useMemo(
-    () => editableNames.includes(activeFile),
-    [editableNames, activeFile],
-  );
+  const isActiveEditable = editableNames.includes(activeFile);
 
-  const setActiveFile = useCallback(
-    (name: string) => {
-      setActiveFileRaw(name);
-      const editable = Object.keys(problem.files).includes(name);
-      models.switchTo(name, !editable);
-    },
-    [models, problem.files],
-  );
+  const setActiveFile = (name: string) => {
+    setActiveFileRaw(name);
+    const editable = Object.keys(problem.files).includes(name);
+    models.switchTo(name, !editable);
+  };
 
   const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
 
-  const onContentChange = useCallback(
-    (filename: string, content: string) => {
-      const starter = starterRef.current[filename] ?? '';
-      saveCode(problemIdRef.current, filename, content, starter);
-      setModifiedFiles(prev => {
-        const next = new Set(prev);
-        if (content !== starter) {
-          next.add(filename);
-        } else {
-          next.delete(filename);
-        }
-        return next;
-      });
-    },
-    [],
-  );
+  const onContentChange = (filename: string, content: string) => {
+    const starter = starterRef.current[filename] ?? '';
+    saveCode(problemIdRef.current, filename, content, starter);
+    setModifiedFiles(prev => {
+      const next = new Set(prev);
+      if (content !== starter) {
+        next.add(filename);
+      } else {
+        next.delete(filename);
+      }
+      return next;
+    });
+  };
 
-  const stripAnsi = useCallback((s: string) => s.replace(/\x1b\[[0-9;]*m/g, ''), []);
+  const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
 
-  const appendOutput = useCallback((text: string, cls = '') => {
+  const appendOutput = (text: string, cls = '') => {
     const lines = stripAnsi(text).split('\n');
     setOutputLines(prev => [
       ...prev,
       ...lines.map(line => ({ text: line || ' ', cls })),
     ]);
-  }, [stripAnsi]);
+  };
 
-  const classifyLine = useCallback((line: string): string => {
-    if (line.startsWith('[PASS]')) return 'text-pass font-semibold';
-    if (line.startsWith('[FAIL]')) return 'text-fail font-semibold';
-    if (/error:/i.test(line)) return 'text-fail';
-    if (/warning:/i.test(line)) return 'text-warn';
-    if (line.startsWith('---')) return 'text-text-mute my-1';
-    return '';
-  }, []);
+  const allFileNames = [...Object.keys(problem.files), ...Object.keys(problem.readOnlyFiles)];
 
-  const allFileNames = useMemo(
-    () => [...Object.keys(problem.files), ...Object.keys(problem.readOnlyFiles)],
-    [problem.files, problem.readOnlyFiles],
-  );
+  const run = (mode: 'run' | 'test') => {
+    if (running) return;
+    setRunning(true);
+    setCompiling(true);
+    setOutputLines([]);
+    setTestResults([]);
+    setShowConfetti(false);
+    setOutputLabel(mode === 'run' ? 'Run Output' : 'Test Results');
+    setSummary(null);
+    stderrBufferRef.current = '';
+    models.clearAllDiagnostics();
 
-  const run = useCallback(
-    (mode: 'run' | 'test') => {
-      if (running) return;
-      setRunning(true);
-      setCompiling(true);
-      setOutputLines([]);
-      setTestResults([]);
-      setShowConfetti(false);
-      setOutputLabel(mode === 'run' ? 'Run Output' : 'Test Results');
-      setSummary(null);
-      stderrBufferRef.current = '';
-      models.clearAllDiagnostics();
+    const files = models.getAllEditableContent(editableNames);
 
-      const files = models.getAllEditableContent(editableNames);
-
-      sse.run(problem.id, files, mode, {
-        onStdout: data => appendOutput(data),
-        onStderr: data => {
-          stderrBufferRef.current += data;
-          appendOutput(data, 'text-fail');
-        },
-        onSentinel: (ev: SentinelEvent) => {
-          if (ev.type === 'test') {
-            setTestResults(prev => [...prev, {
-              name: ev.name,
-              status: ev.status,
-              message: ev.message,
-              duration: ev.durationMs,
-            }]);
-          } else if (ev.type === 'result') {
-            const line = `${ev.passed}/${ev.total} tests passed`;
-            setOutputLines(prev => [
-              ...prev,
-              { text: '', cls: '' },
-              { text: line, cls: 'font-bold text-text-bright mt-2 pt-2 border-t border-dashed border-border-soft' },
-            ]);
+    sse.run(problem.id, files, mode, {
+      onStdout: data => appendOutput(data),
+      onStderr: data => {
+        stderrBufferRef.current += data;
+        appendOutput(data, 'text-fail');
+      },
+      onSentinel: (ev: SentinelEvent) => {
+        if (ev.type === 'test') {
+          setTestResults(prev => [...prev, {
+            name: ev.name,
+            status: ev.status,
+            message: ev.message,
+            duration: ev.durationMs,
+          }]);
+        } else if (ev.type === 'result') {
+          const line = `${ev.passed}/${ev.total} tests passed`;
+          setOutputLines(prev => [
+            ...prev,
+            { text: '', cls: '' },
+            { text: line, cls: 'font-bold text-text-bright mt-2 pt-2 border-t border-dashed border-border-soft' },
+          ]);
+        }
+      },
+      onCompileStart: () => setCompiling(true),
+      onCompileEnd: (exitCode) => {
+        setCompiling(false);
+        // Parse compiler diagnostics from stderr and set Monaco markers
+        if (stderrBufferRef.current) {
+          const diagMap = parseDiagnostics(stderrBufferRef.current, allFileNames);
+          for (const [filename, diags] of diagMap) {
+            models.setDiagnostics(filename, diags);
           }
-        },
-        onCompileStart: () => setCompiling(true),
-        onCompileEnd: (exitCode) => {
-          setCompiling(false);
-          // Parse compiler diagnostics from stderr and set Monaco markers
-          if (stderrBufferRef.current) {
-            const diagMap = parseDiagnostics(stderrBufferRef.current, allFileNames);
-            for (const [filename, diags] of diagMap) {
-              models.setDiagnostics(filename, diags);
-            }
+        }
+      },
+      onRunStart: () => {},
+      onRunEnd: () => {},
+      onDone: (passed, total, exitCode) => {
+        setRunning(false);
+        if (mode === 'test') {
+          const doneEvent = { kind: 'done' as const, passed, total, exitCode };
+          const newStatus = inferStatus(doneEvent);
+          const newSummary = buildSummary(doneEvent);
+          setStatusState(newStatus);
+          setSummary(newSummary);
+          saveStatus(problem.id, newStatus, passed, total);
+          saveBestResult(problem.id, passed, total);
+          if (total > 0 && passed === total) {
+            setShowConfetti(true);
+            recordSolveDate();
           }
-        },
-        onRunStart: () => {},
-        onRunEnd: () => {},
-        onDone: (passed, total, exitCode) => {
-          setRunning(false);
-          if (mode === 'test') {
-            const doneEvent = { kind: 'done' as const, passed, total, exitCode };
-            const newStatus = inferStatus(doneEvent);
-            const newSummary = buildSummary(doneEvent);
-            setStatusState(newStatus);
-            setSummary(newSummary);
-            saveStatus(problem.id, newStatus, passed, total);
-            saveBestResult(problem.id, passed, total);
-            if (total > 0 && passed === total) {
-              setShowConfetti(true);
-              recordSolveDate();
-            }
-          }
-        },
-        onError: msg => {
-          setRunning(false);
-          setCompiling(false);
-          appendOutput(`Error: ${msg}`, 'text-fail font-semibold');
-        },
-      });
-    },
-    [running, models, editableNames, allFileNames, sse, problem.id, appendOutput],
-  );
+        }
+      },
+      onError: msg => {
+        setRunning(false);
+        setCompiling(false);
+        appendOutput(`Error: ${msg}`, 'text-fail font-semibold');
+      },
+    });
+  };
 
-  const abort = useCallback(() => {
+  const abort = () => {
     sse.abort();
     setRunning(false);
     setCompiling(false);
-  }, [sse]);
+  };
 
-  const reset = useCallback(() => {
+  const reset = () => {
     if (!window.confirm('Reset all editable files to starter code? Your changes will be lost.'))
       return;
     clearCode(problem.id, editableNames);
     for (const [name, content] of Object.entries(starterRef.current)) {
       models.updateContent(name, content);
     }
-  }, [problem.id, editableNames, models]);
+  };
 
-  const setCursor = useCallback((line: number, col: number) => {
+  const setCursor = (line: number, col: number) => {
     setCursorLine(line);
     setCursorCol(col);
-  }, []);
+  };
 
-  const dismissConfetti = useCallback(() => setShowConfetti(false), []);
+  const dismissConfetti = () => setShowConfetti(false);
 
-  const clearOutput = useCallback(() => {
+  const clearOutput = () => {
     setOutputLines([]);
     setTestResults([]);
     setSummary(null);
     setOutputLabel('Output');
-  }, []);
+  };
 
   return {
     activeFile,

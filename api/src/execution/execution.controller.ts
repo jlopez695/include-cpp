@@ -7,17 +7,15 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ExecutionService } from './execution.service.js';
 import { InFlightRegistry } from './in-flight.js';
+import { RunBodyDto } from './run-body.dto.js';
 import type { StreamEvent } from './event-emitter.js';
 
-interface RunBody {
-  files: Record<string, string>;
-  userId?: string;
-}
-
+@ApiTags('problems')
 @Controller('problems')
 export class ExecutionController {
   constructor(
@@ -25,22 +23,32 @@ export class ExecutionController {
     private readonly inFlight: InFlightRegistry,
   ) {}
 
+  @ApiOperation({ summary: 'Run user code for a problem' })
+  @ApiParam({ name: 'id', description: 'Problem ID', example: 'POTD0' })
+  @ApiBody({ type: RunBodyDto })
+  @ApiResponse({ status: 200, description: 'SSE stream of execution events' })
+  @ApiResponse({ status: 409, description: 'A run is already in flight' })
   @Throttle({ exec: { ttl: 10_000, limit: 8 } })
   @Post(':id/run')
   run(
     @Param('id') id: string,
-    @Body() body: RunBody,
+    @Body() body: RunBodyDto,
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ) {
     return this.stream(id, body, 'run', req, res);
   }
 
+  @ApiOperation({ summary: 'Test user code for a problem' })
+  @ApiParam({ name: 'id', description: 'Problem ID', example: 'POTD0' })
+  @ApiBody({ type: RunBodyDto })
+  @ApiResponse({ status: 200, description: 'SSE stream of execution events' })
+  @ApiResponse({ status: 409, description: 'A run is already in flight' })
   @Throttle({ exec: { ttl: 10_000, limit: 8 } })
   @Post(':id/test')
   test(
     @Param('id') id: string,
-    @Body() body: RunBody,
+    @Body() body: RunBodyDto,
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ) {
@@ -49,7 +57,7 @@ export class ExecutionController {
 
   private async stream(
     id: string,
-    body: RunBody,
+    body: RunBodyDto,
     mode: 'run' | 'test',
     req: FastifyRequest,
     res: FastifyReply,

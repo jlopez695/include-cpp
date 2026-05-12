@@ -1,16 +1,21 @@
 import { Controller, Get, Param } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { ProblemsService } from './problems.service.js';
 import type { ProblemSummary } from './meta.types.js';
 
+@ApiTags('problems')
 @Controller('problems')
 export class ProblemsController {
   constructor(private readonly problems: ProblemsService) {}
 
+  @ApiOperation({ summary: 'List all problems' })
   @Get()
   list(): ProblemSummary[] {
     return this.problems.list();
   }
 
+  @ApiOperation({ summary: 'Get problem detail' })
+  @ApiParam({ name: 'id', description: 'Problem ID', example: 'POTD0' })
   @Get(':id')
   detail(@Param('id') id: string) {
     const d = this.problems.detail(id);

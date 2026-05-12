@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { TOOLCHAIN } from '../common/toolchain.js';
 
 interface HealthResponse {
@@ -7,8 +8,11 @@ interface HealthResponse {
   warnings: string[];
 }
 
+@ApiTags('health')
 @Controller('health')
 export class HealthController {
+  @ApiOperation({ summary: 'Check toolchain health' })
+  @ApiResponse({ status: 200, description: 'Toolchain status and warnings' })
   @Get()
   check(): HealthResponse {
     const warnings: string[] = [];

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useCallback, useState, useRef } from 'react';
+import { createContext, use, useState, useRef } from 'react';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -17,20 +17,20 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue>({ toast: () => {} });
 
 export function useToast() {
-  return useContext(ToastContext);
+  return use(ToastContext);
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const idRef = useRef(0);
 
-  const toast = useCallback((message: string, type: ToastType = 'info') => {
+  const toast = (message: string, type: ToastType = 'info') => {
     const id = ++idRef.current;
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
-  }, []);
+  };
 
   return (
     <ToastContext.Provider value={{ toast }}>

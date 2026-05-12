@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useOptimistic, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ProblemSummary, Status } from '@/lib/types';
@@ -65,25 +65,40 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
     setBookmarks(new Set(getBookmarkedIds()));
   }, [problems, statusOverrides]);
 
-  const handleToggleBookmark = (problemId: string) => {
-    const nowBookmarked = toggleBookmark(problemId);
-    setBookmarks(prev => {
-      const next = new Set(prev);
-      if (nowBookmarked) next.add(problemId);
-      else next.delete(problemId);
+  // React 19: useOptimistic for instant bookmark feedback
+  const [optimisticBookmarks, addOptimisticBookmark] = useOptimistic(
+    bookmarks,
+    (current: Set<string>, problemId: string) => {
+      const next = new Set(current);
+      if (next.has(problemId)) next.delete(problemId);
+      else next.add(problemId);
       return next;
+    },
+  );
+  const [, startTransition] = useTransition();
+
+  const handleToggleBookmark = (problemId: string) => {
+    startTransition(async () => {
+      addOptimisticBookmark(problemId);
+      const nowBookmarked = toggleBookmark(problemId);
+      setBookmarks(prev => {
+        const next = new Set(prev);
+        if (nowBookmarked) next.add(problemId);
+        else next.delete(problemId);
+        return next;
+      });
     });
   };
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     const q = search.trim().toLowerCase();
     return problems.filter(p => {
       if (q && !p.id.toLowerCase().includes(q) && !p.title.toLowerCase().includes(q)) return false;
-      if (filter === 'starred' && !bookmarks.has(p.id)) return false;
+      if (filter === 'starred' && !optimisticBookmarks.has(p.id)) return false;
       else if (filter !== 'all' && filter !== 'starred' && statuses[p.id] !== filter) return false;
       return true;
     });
-  }, [problems, search, filter, statuses, bookmarks]);
+  })();
 
   const solvedCount = Object.values(statuses).filter(s => s === 'solved').length;
   const attemptedCount = Object.values(statuses).filter(s => s === 'attempted').length;
@@ -91,7 +106,7 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
 
   const FILTERS: { value: Filter; label: string; count: number }[] = [
     { value: 'all', label: 'All', count: problems.length },
-    { value: 'starred', label: '\u2605', count: bookmarks.size },
+    { value: 'starred', label: '\u2605', count: optimisticBookmarks.size },
     { value: 'unsolved', label: 'Todo', count: problems.length - solvedCount - attemptedCount },
     { value: 'attempted', label: 'WIP', count: attemptedCount },
     { value: 'solved', label: 'Done', count: solvedCount },
@@ -209,7 +224,7 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
         {filtered.map((p) => {
           const isActive = activeId === p.id;
           const status = statuses[p.id] ?? 'unsolved';
-          const starred = bookmarks.has(p.id);
+          const starred = optimisticBookmarks.has(p.id);
           const best = bestResults[p.id];
           return (
             <div key={p.id} className="relative group" role="listitem">

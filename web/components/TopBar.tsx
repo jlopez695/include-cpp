@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ProblemDetail, ProblemSummary, Status } from '@/lib/types';
 
@@ -13,13 +12,9 @@ interface TopBarProps {
 export function TopBar({ problem, problems, status }: TopBarProps) {
   const router = useRouter();
 
-  const { prev, next } = useMemo(() => {
-    const idx = problems.findIndex(p => p.id === problem.id);
-    return {
-      prev: idx > 0 ? problems[idx - 1] : null,
-      next: idx < problems.length - 1 ? problems[idx + 1] : null,
-    };
-  }, [problems, problem.id]);
+  const idx = problems.findIndex(p => p.id === problem.id);
+  const prev = idx > 0 ? problems[idx - 1] : null;
+  const next = idx < problems.length - 1 ? problems[idx + 1] : null;
 
   return (
     <header className="h-12 flex items-center justify-between px-5 bg-bg-1 border-b border-border-soft shrink-0">

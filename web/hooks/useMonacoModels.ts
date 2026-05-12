@@ -1,6 +1,8 @@
 'use client';
+/* eslint-disable react-compiler/react-compiler */
+'use no memo'; // Opt out of React Compiler — manages imperative Monaco model lifecycle
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import type * as Monaco from 'monaco-editor';
 import { langForFile } from '@/lib/lang';
 
@@ -18,48 +20,39 @@ export function useMonacoModels() {
   const activeFileRef = useRef<string>('');
   const readyRef = useRef(false);
 
-  const init = useCallback(
-    (editor: Monaco.editor.IStandaloneCodeEditor, monaco: typeof Monaco) => {
-      editorRef.current = editor;
-      monacoRef.current = monaco;
-      readyRef.current = true;
-    },
-    [],
-  );
+  const init = (editor: Monaco.editor.IStandaloneCodeEditor, monaco: typeof Monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+    readyRef.current = true;
+  };
 
-  const isReady = useCallback(() => readyRef.current, []);
+  const isReady = () => readyRef.current;
 
-  const ensureModel = useCallback(
-    (filename: string, content: string): Monaco.editor.ITextModel | null => {
-      const monaco = monacoRef.current;
-      if (!monaco) return null;
+  const ensureModel = (filename: string, content: string): Monaco.editor.ITextModel | null => {
+    const monaco = monacoRef.current;
+    if (!monaco) return null;
 
-      const existing = modelsRef.current.get(filename);
-      if (existing && !existing.isDisposed()) return existing;
+    const existing = modelsRef.current.get(filename);
+    if (existing && !existing.isDisposed()) return existing;
 
-      const uri = monaco.Uri.parse(`file:///${filename}`);
-      const model =
-        monaco.editor.getModel(uri) ??
-        monaco.editor.createModel(content, langForFile(filename), uri);
-      modelsRef.current.set(filename, model);
-      return model;
-    },
-    [],
-  );
+    const uri = monaco.Uri.parse(`file:///${filename}`);
+    const model =
+      monaco.editor.getModel(uri) ??
+      monaco.editor.createModel(content, langForFile(filename), uri);
+    modelsRef.current.set(filename, model);
+    return model;
+  };
 
-  const loadFiles = useCallback(
-    (editableFiles: Record<string, string>, readOnlyFiles: Record<string, string>) => {
-      for (const [name, content] of Object.entries(editableFiles)) {
-        ensureModel(name, content);
-      }
-      for (const [name, content] of Object.entries(readOnlyFiles)) {
-        ensureModel(name, content);
-      }
-    },
-    [ensureModel],
-  );
+  const loadFiles = (editableFiles: Record<string, string>, readOnlyFiles: Record<string, string>) => {
+    for (const [name, content] of Object.entries(editableFiles)) {
+      ensureModel(name, content);
+    }
+    for (const [name, content] of Object.entries(readOnlyFiles)) {
+      ensureModel(name, content);
+    }
+  };
 
-  const switchTo = useCallback((filename: string, readOnly: boolean) => {
+  const switchTo = (filename: string, readOnly: boolean) => {
     const editor = editorRef.current;
     if (!editor) return;
 
@@ -80,56 +73,50 @@ export function useMonacoModels() {
       }
       editor.focus();
     }
-  }, []);
+  };
 
-  const updateContent = useCallback((filename: string, content: string) => {
+  const updateContent = (filename: string, content: string) => {
     const model = modelsRef.current.get(filename);
     if (model && model.getValue() !== content) {
       model.setValue(content);
     }
-  }, []);
+  };
 
-  const getContent = useCallback((filename: string): string => {
+  const getContent = (filename: string): string => {
     const model = modelsRef.current.get(filename);
     return model?.getValue() ?? '';
-  }, []);
+  };
 
-  const getAllEditableContent = useCallback(
-    (editableNames: string[]): Record<string, string> => {
-      const result: Record<string, string> = {};
-      for (const name of editableNames) {
-        result[name] = getContent(name);
-      }
-      return result;
-    },
-    [getContent],
-  );
+  const getAllEditableContent = (editableNames: string[]): Record<string, string> => {
+    const result: Record<string, string> = {};
+    for (const name of editableNames) {
+      result[name] = getContent(name);
+    }
+    return result;
+  };
 
-  const setDiagnostics = useCallback(
-    (filename: string, diagnostics: Array<{ line: number; col: number; severity: 'error' | 'warning' | 'info'; message: string }>) => {
-      const monaco = monacoRef.current;
-      if (!monaco) return;
-      const model = modelsRef.current.get(filename);
-      if (!model || model.isDisposed()) return;
+  const setDiagnostics = (filename: string, diagnostics: Array<{ line: number; col: number; severity: 'error' | 'warning' | 'info'; message: string }>) => {
+    const monaco = monacoRef.current;
+    if (!monaco) return;
+    const model = modelsRef.current.get(filename);
+    if (!model || model.isDisposed()) return;
 
-      const markers = diagnostics.map(d => ({
-        severity:
-          d.severity === 'error' ? monaco.MarkerSeverity.Error
-          : d.severity === 'warning' ? monaco.MarkerSeverity.Warning
-          : monaco.MarkerSeverity.Info,
-        startLineNumber: d.line,
-        startColumn: d.col,
-        endLineNumber: d.line,
-        endColumn: model.getLineMaxColumn(d.line),
-        message: d.message,
-      }));
+    const markers = diagnostics.map(d => ({
+      severity:
+        d.severity === 'error' ? monaco.MarkerSeverity.Error
+        : d.severity === 'warning' ? monaco.MarkerSeverity.Warning
+        : monaco.MarkerSeverity.Info,
+      startLineNumber: d.line,
+      startColumn: d.col,
+      endLineNumber: d.line,
+      endColumn: model.getLineMaxColumn(d.line),
+      message: d.message,
+    }));
 
-      monaco.editor.setModelMarkers(model, 'compiler', markers);
-    },
-    [],
-  );
+    monaco.editor.setModelMarkers(model, 'compiler', markers);
+  };
 
-  const clearAllDiagnostics = useCallback(() => {
+  const clearAllDiagnostics = () => {
     const monaco = monacoRef.current;
     if (!monaco) return;
     for (const model of modelsRef.current.values()) {
@@ -137,16 +124,16 @@ export function useMonacoModels() {
         monaco.editor.setModelMarkers(model, 'compiler', []);
       }
     }
-  }, []);
+  };
 
-  const disposeAll = useCallback(() => {
+  const disposeAll = () => {
     for (const model of modelsRef.current.values()) {
       if (!model.isDisposed()) model.dispose();
     }
     modelsRef.current.clear();
     viewStatesRef.current.clear();
     activeFileRef.current = '';
-  }, []);
+  };
 
   useEffect(() => () => disposeAll(), [disposeAll]);
 

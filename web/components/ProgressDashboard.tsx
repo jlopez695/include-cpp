@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import type { ProblemSummary, Status } from '@/lib/types';
 import { loadStatus } from '@/lib/storage';
 
@@ -20,16 +20,14 @@ export function ProgressDashboard({ open, onClose, problems }: ProgressDashboard
     return () => window.removeEventListener('keydown', handler);
   }, [open, onClose]);
 
-  const stats = useMemo(() => {
-    const statuses: Record<string, Status> = {};
-    for (const p of problems) {
-      statuses[p.id] = loadStatus(p.id);
-    }
-    const solved = Object.values(statuses).filter(s => s === 'solved').length;
-    const attempted = Object.values(statuses).filter(s => s === 'attempted').length;
-    const unsolved = problems.length - solved - attempted;
-    return { solved, attempted, unsolved, total: problems.length, statuses };
-  }, [problems]);
+  const statuses: Record<string, Status> = {};
+  for (const p of problems) {
+    statuses[p.id] = loadStatus(p.id);
+  }
+  const solved = Object.values(statuses).filter(s => s === 'solved').length;
+  const attempted = Object.values(statuses).filter(s => s === 'attempted').length;
+  const unsolved = problems.length - solved - attempted;
+  const stats = { solved, attempted, unsolved, total: problems.length, statuses };
 
   if (!open) return null;
 

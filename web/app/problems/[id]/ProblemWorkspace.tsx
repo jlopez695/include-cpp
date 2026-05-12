@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import type { ProblemDetail, ProblemSummary } from '@/lib/types';
 import { useProblemEditor } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
@@ -29,13 +29,13 @@ export function ProblemWorkspace({ problem, problems }: Props) {
     setVimMode(loadUiState('vimMode', false));
   }, []);
 
-  const toggleVim = useCallback(() => {
+  const toggleVim = () => {
     setVimMode(prev => {
       const next = !prev;
       saveUiState('vimMode', next);
       return next;
     });
-  }, []);
+  };
 
   const horizontal = useResizable(
     'split-h',
@@ -46,7 +46,7 @@ export function ProblemWorkspace({ problem, problems }: Props) {
   );
 
   // Global Cmd+? to open shortcuts overlay
-  const toggleShortcuts = useCallback(() => setShowShortcuts(v => !v), []);
+  const toggleShortcuts = () => setShowShortcuts(v => !v);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === '?') {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import type { ProblemSummary } from '@/lib/types';
@@ -34,13 +34,13 @@ export function SidebarWrapper({ problems }: Props) {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const toggleCollapse = useCallback(() => {
+  const toggleCollapse = () => {
     setCollapsed(prev => {
       const next = !prev;
       saveUiState('sidebarCollapsed', next);
       return next;
     });
-  }, []);
+  };
 
   if (collapsed) {
     return (

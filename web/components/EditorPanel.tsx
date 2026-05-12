@@ -1,6 +1,8 @@
 'use client';
+/* eslint-disable react-compiler/react-compiler */
+'use no memo'; // Opt out of React Compiler — Monaco is imperative and breaks under auto-memoization
 
-import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 // Dynamically imported — monaco-vim accesses `window` at module scope
 const loadVim = () => import('monaco-vim').then(m => m.initVimMode);
@@ -106,41 +108,38 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
     };
   }, [vimMode, editorReady]);
 
-  const handleEditorMount: OnMount = useCallback(
-    (editorInstance, monaco) => {
-      monacoInstanceRef.current = monaco;
-      editorInstanceRef.current = editorInstance;
-      setEditorReady(true);
-      editor.models.init(editorInstance, monaco);
-      editor.loadIntoModels();
+  const handleEditorMount: OnMount = (editorInstance, monaco) => {
+    monacoInstanceRef.current = monaco;
+    editorInstanceRef.current = editorInstance;
+    setEditorReady(true);
+    editor.models.init(editorInstance, monaco);
+    editor.loadIntoModels();
 
-      editorInstance.addCommand(
-        monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-        () => editor.run('run'),
-      );
-      editorInstance.addCommand(
-        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter,
-        () => editor.run('test'),
-      );
+    editorInstance.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+      () => editor.run('run'),
+    );
+    editorInstance.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter,
+      () => editor.run('test'),
+    );
 
-      editorInstance.onDidChangeCursorPosition(
-        (e: { position: { lineNumber: number; column: number } }) => {
-          editor.setCursor(e.position.lineNumber, e.position.column);
-        },
-      );
+    editorInstance.onDidChangeCursorPosition(
+      (e: { position: { lineNumber: number; column: number } }) => {
+        editor.setCursor(e.position.lineNumber, e.position.column);
+      },
+    );
 
-      editorInstance.onDidChangeModelContent(() => {
-        const model = editorInstance.getModel();
-        if (model) {
-          const filename = model.uri.path.replace(/^\//, '');
-          if (editor.editableNames.includes(filename)) {
-            editor.onContentChange(filename, model.getValue());
-          }
+    editorInstance.onDidChangeModelContent(() => {
+      const model = editorInstance.getModel();
+      if (model) {
+        const filename = model.uri.path.replace(/^\//, '');
+        if (editor.editableNames.includes(filename)) {
+          editor.onContentChange(filename, model.getValue());
         }
-      });
-    },
-    [editor],
-  );
+      }
+    });
+  };
 
   return (
     <section

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import type { TestResult } from '@/lib/types';
 import { formatOutputText } from '@/lib/output-format';
 
@@ -29,13 +29,13 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests, 
     }
   }, [lines.length, testResults.length]);
 
-  const handleCopy = useCallback(() => {
+  const handleCopy = () => {
     const text = formatOutputText(lines, testResults);
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
-  }, [lines, testResults]);
+  };
 
   const hasTests = testResults.length > 0;
   const hasFailed = testResults.some(t => t.status !== 'pass');

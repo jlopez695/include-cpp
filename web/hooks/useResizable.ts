@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { loadUiState, saveUiState } from '@/lib/storage';
 
 export function useResizable(
@@ -21,15 +21,12 @@ export function useResizable(
     if (saved !== initial) setSize(saved);
   }, [storageKey, initial]);
 
-  const onMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      dragging.current = true;
-      document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
-      document.body.style.userSelect = 'none';
-    },
-    [direction],
-  );
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
+    document.body.style.userSelect = 'none';
+  };
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {

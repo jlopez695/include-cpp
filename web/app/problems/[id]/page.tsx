@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
+import { after } from 'next/server';
 import { fetchProblem, fetchProblems } from '@/lib/api';
 import { ProblemWorkspace } from './ProblemWorkspace';
 
@@ -27,6 +28,11 @@ export default async function ProblemPage({ params }: Props) {
   }
 
   const problems = await fetchProblems();
+
+  // Next.js 16: run work after the response is sent to the client
+  after(() => {
+    console.log(`[page] Problem viewed: ${id} (${problem.title})`);
+  });
 
   return (
     <Suspense fallback={<WorkspaceSkeleton />}>
@@ -61,8 +67,8 @@ function WorkspaceSkeleton() {
             <div className="w-16 h-4 rounded animate-shimmer" />
           </div>
           <div className="flex-1 bg-[#1e1e1e] p-4 flex flex-col gap-2">
-            {Array.from({ length: 12 }, (_, i) => (
-              <div key={i} className="rounded animate-shimmer" style={{ width: `${40 + Math.random() * 50}%`, height: 14 }} />
+            {[72, 55, 88, 63, 45, 80, 50, 70, 60, 85, 48, 75].map((w, i) => (
+              <div key={i} className="rounded animate-shimmer" style={{ width: `${w}%`, height: 14 }} />
             ))}
           </div>
         </div>
