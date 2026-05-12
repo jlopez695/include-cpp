@@ -15,9 +15,10 @@ interface OutputPanelProps {
   label: string;
   summary: string | null;
   onRerunTests?: () => void;
+  onClear?: () => void;
 }
 
-export function OutputPanel({ lines, testResults, label, summary, onRerunTests }: OutputPanelProps) {
+export function OutputPanel({ lines, testResults, label, summary, onRerunTests, onClear }: OutputPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
@@ -88,6 +89,21 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests }
                   Copy
                 </>
               )}
+            </button>
+          )}
+          {!isEmpty && onClear && (
+            <button
+              onClick={onClear}
+              className="text-[10px] font-medium text-text-mute hover:text-text-base transition-colors flex items-center gap-1"
+              aria-label="Clear output"
+              title="Clear output"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M2.5 3H7.5L7 9H3L2.5 3Z" stroke="currentColor" strokeWidth="0.9" strokeLinejoin="round" />
+                <path d="M1.5 3H8.5" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" />
+                <path d="M4 1.5H6" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" />
+              </svg>
+              Clear
             </button>
           )}
           {hasFailed && onRerunTests && (

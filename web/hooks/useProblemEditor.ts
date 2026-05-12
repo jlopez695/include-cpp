@@ -51,6 +51,7 @@ export interface ProblemEditorState {
   onContentChange: (filename: string, content: string) => void;
   loadIntoModels: () => void;
   dismissConfetti: () => void;
+  clearOutput: () => void;
 }
 
 export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
@@ -287,6 +288,13 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
 
   const dismissConfetti = useCallback(() => setShowConfetti(false), []);
 
+  const clearOutput = useCallback(() => {
+    setOutputLines([]);
+    setTestResults([]);
+    setSummary(null);
+    setOutputLabel('Output');
+  }, []);
+
   return {
     activeFile,
     allFiles,
@@ -314,5 +322,6 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     onContentChange,
     loadIntoModels,
     dismissConfetti,
+    clearOutput,
   };
 }

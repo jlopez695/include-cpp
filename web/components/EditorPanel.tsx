@@ -394,6 +394,7 @@ export function EditorPanel({ editor }: EditorPanelProps) {
           label={editor.outputLabel}
           summary={editor.summary}
           onRerunTests={!editor.running ? () => editor.run('test') : undefined}
+          onClear={!editor.running ? editor.clearOutput : undefined}
         />
       </div>
     </section>
