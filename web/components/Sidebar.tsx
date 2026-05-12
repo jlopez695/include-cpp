@@ -38,9 +38,10 @@ interface SidebarProps {
   problems: ProblemSummary[];
   activeId: string;
   statusOverrides?: Record<string, Status>;
+  onCollapse?: () => void;
 }
 
-export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
+export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: SidebarProps) {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -108,7 +109,7 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent via-purple to-accent text-bg-0 flex items-center justify-center font-extrabold text-sm tracking-wider shrink-0 shadow-lg shadow-accent/20">
             225
           </div>
-          <div className="flex flex-col min-w-0">
+          <div className="flex flex-col min-w-0 flex-1">
             <div className="text-[13px] font-bold text-text-bright tracking-tight">CS 225 POTD</div>
             <button
               onClick={() => setShowProgress(true)}
@@ -117,6 +118,18 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
               {solvedCount} of {problems.length} solved
             </button>
           </div>
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="w-6 h-6 flex items-center justify-center rounded text-text-mute hover:text-text-bright hover:bg-bg-3 transition-colors shrink-0"
+              title="Collapse sidebar (Cmd+B)"
+              aria-label="Collapse sidebar"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M7.5 3L4.5 6L7.5 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
         </div>
         {/* Progress bar */}
         <div className="mt-3 h-1.5 bg-bg-3 rounded-full overflow-hidden">
