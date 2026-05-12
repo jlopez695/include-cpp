@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { notFound } from 'next/navigation';
 import { fetchProblem, fetchProblems } from '@/lib/api';
 import { ProblemWorkspace } from './ProblemWorkspace';
 
@@ -17,10 +18,15 @@ export async function generateStaticParams() {
 
 export default async function ProblemPage({ params }: Props) {
   const { id } = await params;
-  const [problem, problems] = await Promise.all([
-    fetchProblem(id),
-    fetchProblems(),
-  ]);
+
+  let problem;
+  try {
+    problem = await fetchProblem(id);
+  } catch {
+    notFound();
+  }
+
+  const problems = await fetchProblems();
 
   return (
     <Suspense fallback={<WorkspaceSkeleton />}>
