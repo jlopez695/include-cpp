@@ -4,11 +4,11 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ProblemSummary, Status } from '@/lib/types';
-import { loadStatus, getStreak } from '@/lib/storage';
+import { loadStatus, getStreak, getBookmarkedIds, toggleBookmark } from '@/lib/storage';
 import { pickRandom } from '@/lib/random-pick';
 import { ProgressDashboard } from './ProgressDashboard';
 
-type Filter = 'all' | Status;
+type Filter = 'all' | 'starred' | Status;
 
 function StatusDot({ status }: { status: Status }) {
   if (status === 'solved') {
@@ -47,24 +47,37 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
   const [showProgress, setShowProgress] = useState(false);
 
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
+  const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
 
-  // Load statuses client-side only to avoid hydration mismatch (localStorage is not available on server)
+  // Load statuses and bookmarks client-side only to avoid hydration mismatch
   useEffect(() => {
     const s: Record<string, Status> = {};
     for (const p of problems) {
       s[p.id] = statusOverrides?.[p.id] ?? loadStatus(p.id);
     }
     setStatuses(s);
+    setBookmarks(new Set(getBookmarkedIds()));
   }, [problems, statusOverrides]);
+
+  const handleToggleBookmark = (problemId: string) => {
+    const nowBookmarked = toggleBookmark(problemId);
+    setBookmarks(prev => {
+      const next = new Set(prev);
+      if (nowBookmarked) next.add(problemId);
+      else next.delete(problemId);
+      return next;
+    });
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return problems.filter(p => {
       if (q && !p.id.toLowerCase().includes(q) && !p.title.toLowerCase().includes(q)) return false;
-      if (filter !== 'all' && statuses[p.id] !== filter) return false;
+      if (filter === 'starred' && !bookmarks.has(p.id)) return false;
+      else if (filter !== 'all' && filter !== 'starred' && statuses[p.id] !== filter) return false;
       return true;
     });
-  }, [problems, search, filter, statuses]);
+  }, [problems, search, filter, statuses, bookmarks]);
 
   const solvedCount = Object.values(statuses).filter(s => s === 'solved').length;
   const attemptedCount = Object.values(statuses).filter(s => s === 'attempted').length;
@@ -72,6 +85,7 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
 
   const FILTERS: { value: Filter; label: string; count: number }[] = [
     { value: 'all', label: 'All', count: problems.length },
+    { value: 'starred', label: '\u2605', count: bookmarks.size },
     { value: 'unsolved', label: 'Todo', count: problems.length - solvedCount - attemptedCount },
     { value: 'attempted', label: 'WIP', count: attemptedCount },
     { value: 'solved', label: 'Done', count: solvedCount },
@@ -177,33 +191,48 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
         {filtered.map((p) => {
           const isActive = activeId === p.id;
           const status = statuses[p.id] ?? 'unsolved';
+          const starred = bookmarks.has(p.id);
           return (
-            <Link
-              key={p.id}
-              href={`/problems/${p.id}`}
-              role="listitem"
-              className={`group flex items-center gap-2.5 w-full px-3 py-2.5 text-left border-l-2 transition-all duration-150 hover:bg-white/[0.03] no-underline ${
-                isActive
-                  ? 'bg-accent/[0.07] border-l-accent'
-                  : 'border-l-transparent'
-              }`}
-            >
-              <StatusDot status={status} />
-              <div className="flex flex-col min-w-0 gap-0.5">
-                <div
-                  className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${
-                    isActive ? 'text-accent' : 'text-text-mute group-hover:text-text-dim'
-                  }`}
-                >
-                  {p.id}
+            <div key={p.id} className="relative group" role="listitem">
+              <Link
+                href={`/problems/${p.id}`}
+                className={`flex items-center gap-2.5 w-full px-3 py-2.5 text-left border-l-2 transition-all duration-150 hover:bg-white/[0.03] no-underline ${
+                  isActive
+                    ? 'bg-accent/[0.07] border-l-accent'
+                    : 'border-l-transparent'
+                }`}
+              >
+                <StatusDot status={status} />
+                <div className="flex flex-col min-w-0 gap-0.5 flex-1">
+                  <div
+                    className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${
+                      isActive ? 'text-accent' : 'text-text-mute group-hover:text-text-dim'
+                    }`}
+                  >
+                    {p.id}
+                  </div>
+                  <div className={`text-[13px] leading-tight truncate transition-colors ${
+                    isActive ? 'text-text-bright' : 'text-text-base'
+                  }`}>
+                    {p.title}
+                  </div>
                 </div>
-                <div className={`text-[13px] leading-tight truncate transition-colors ${
-                  isActive ? 'text-text-bright' : 'text-text-base'
-                }`}>
-                  {p.title}
-                </div>
-              </div>
-            </Link>
+              </Link>
+              <button
+                onClick={(e) => { e.preventDefault(); handleToggleBookmark(p.id); }}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded transition-all ${
+                  starred
+                    ? 'text-warn opacity-100'
+                    : 'text-text-mute opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-warn'
+                }`}
+                aria-label={starred ? 'Remove bookmark' : 'Add bookmark'}
+                title={starred ? 'Remove bookmark' : 'Bookmark'}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill={starred ? 'currentColor' : 'none'}>
+                  <path d="M5 1L6.1 3.5H8.8L6.8 5.2L7.5 8L5 6.3L2.5 8L3.2 5.2L1.2 3.5H3.9L5 1Z" stroke="currentColor" strokeWidth="0.8" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
           );
         })}
       </div>

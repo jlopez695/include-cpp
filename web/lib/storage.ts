@@ -166,6 +166,35 @@ export function getStreak(): number {
   return streak;
 }
 
+/* ── Bookmarks ── */
+
+const BOOKMARKS_KEY = 'potd:bookmarks';
+
+export function getBookmarkedIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(BOOKMARKS_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export function isBookmarked(problemId: string): boolean {
+  return getBookmarkedIds().includes(problemId);
+}
+
+/** Toggle bookmark for a problem. Returns the new bookmarked state. */
+export function toggleBookmark(problemId: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const ids = getBookmarkedIds();
+  const idx = ids.indexOf(problemId);
+  if (idx >= 0) {
+    ids.splice(idx, 1);
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(ids));
+    return false;
+  }
+  ids.push(problemId);
+  localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(ids));
+  return true;
+}
+
 /* ── UI state persistence ── */
 
 export function loadUiState<T>(key: string, fallback: T): T {
