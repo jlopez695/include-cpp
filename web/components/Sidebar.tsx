@@ -2,8 +2,10 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { ProblemSummary, Status } from '@/lib/types';
 import { loadStatus, getStreak } from '@/lib/storage';
+import { pickRandom } from '@/lib/random-pick';
 import { ProgressDashboard } from './ProgressDashboard';
 
 type Filter = 'all' | Status;
@@ -39,6 +41,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [showProgress, setShowProgress] = useState(false);
@@ -110,19 +113,39 @@ export function Sidebar({ problems, activeId, statusOverrides }: SidebarProps) {
         <label className="sr-only" htmlFor="problem-search">
           Search problems
         </label>
-        <div className="relative">
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-mute" width="12" height="12" viewBox="0 0 16 16" fill="none">
-            <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M11 11L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <input
-            id="problem-search"
-            type="text"
-            placeholder="Search problems..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full bg-bg-2 border border-border-soft text-text-base placeholder:text-text-mute pl-8 pr-2.5 py-1.5 rounded-lg text-xs outline-none focus:border-accent-dim focus:bg-bg-3 transition"
-          />
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-mute" width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M11 11L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <input
+              id="problem-search"
+              type="text"
+              placeholder="Search problems..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full bg-bg-2 border border-border-soft text-text-base placeholder:text-text-mute pl-8 pr-2.5 py-1.5 rounded-lg text-xs outline-none focus:border-accent-dim focus:bg-bg-3 transition"
+            />
+          </div>
+          <button
+            onClick={() => {
+              const id = pickRandom(problems, statuses, activeId);
+              if (id) router.push(`/problems/${id}`);
+            }}
+            title="Random problem"
+            className="w-7 h-7 flex items-center justify-center rounded-md text-text-mute hover:text-accent hover:bg-accent/10 transition-colors shrink-0"
+            aria-label="Pick a random problem"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="2" y="2" width="10" height="10" rx="2" stroke="currentColor" strokeWidth="1.2" />
+              <circle cx="5" cy="5" r="0.8" fill="currentColor" />
+              <circle cx="9" cy="5" r="0.8" fill="currentColor" />
+              <circle cx="7" cy="7" r="0.8" fill="currentColor" />
+              <circle cx="5" cy="9" r="0.8" fill="currentColor" />
+              <circle cx="9" cy="9" r="0.8" fill="currentColor" />
+            </svg>
+          </button>
         </div>
       </div>
 
