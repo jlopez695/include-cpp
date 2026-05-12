@@ -2,7 +2,8 @@
 
 import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
-import { initVimMode } from 'monaco-vim';
+// Dynamically imported — monaco-vim accesses `window` at module scope
+const loadVim = () => import('monaco-vim').then(m => m.initVimMode);
 import type { ProblemEditorState } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
 import { loadUiState, saveUiState } from '@/lib/storage';
@@ -81,16 +82,20 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
   // Init/dispose vim mode when toggled or editor becomes ready
   useEffect(() => {
     const ed = editorInstanceRef.current;
-    if (!editorReady || !ed) return;
+    if (!editorReady || !ed || !vimMode) return;
 
-    if (vimMode) {
+    let disposed = false;
+    loadVim().then(initVimMode => {
+      if (disposed) return;
       const adapter = initVimMode(ed, vimStatusRef.current);
       vimAdapterRef.current = adapter;
-      return () => {
-        adapter.dispose();
-        vimAdapterRef.current = null;
-      };
-    }
+    });
+
+    return () => {
+      disposed = true;
+      vimAdapterRef.current?.dispose();
+      vimAdapterRef.current = null;
+    };
   }, [vimMode, editorReady]);
 
   const handleEditorMount: OnMount = useCallback(
