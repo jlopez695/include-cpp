@@ -135,7 +135,11 @@ export function useMonacoModels() {
     activeFileRef.current = '';
   };
 
-  useEffect(() => () => disposeAll(), [disposeAll]);
+  // Unmount-only cleanup. disposeAll closes over refs, so its changing identity
+  // each render is irrelevant — but if listed as a dep it fires the cleanup on
+  // every re-render and disposes every model, blanking the editor on tab switch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => disposeAll(), []);
 
   return {
     init,
