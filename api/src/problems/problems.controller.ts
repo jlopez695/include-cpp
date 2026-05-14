@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Header, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { ProblemsService } from './problems.service.js';
 import type { ProblemSummary } from './meta.types.js';
@@ -9,6 +9,7 @@ export class ProblemsController {
   constructor(private readonly problems: ProblemsService) {}
 
   @ApiOperation({ summary: 'List all problems' })
+  @Header('Cache-Control', 'public, max-age=3600')
   @Get()
   list(): ProblemSummary[] {
     return this.problems.list();
@@ -16,6 +17,7 @@ export class ProblemsController {
 
   @ApiOperation({ summary: 'Get problem detail' })
   @ApiParam({ name: 'id', description: 'Problem ID', example: 'POTD0' })
+  @Header('Cache-Control', 'public, max-age=3600')
   @Get(':id')
   detail(@Param('id') id: string) {
     const d = this.problems.detail(id);

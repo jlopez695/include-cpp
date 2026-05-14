@@ -7,6 +7,7 @@ import {
 } from '@nestjs/platform-fastify';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import fastifyCors from '@fastify/cors';
+import fastifyCompress from '@fastify/compress';
 import { AppModule } from './app.module.js';
 import { logToolchainStartupBanner } from './common/toolchain.js';
 import { LoggingInterceptor } from './common/logging.interceptor.js';
@@ -26,6 +27,10 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.enableShutdownHooks();
+
+  await app.register(fastifyCompress as any, {
+    encodings: ['br', 'gzip', 'deflate'],
+  });
 
   await app.register(fastifyCors as any, {
     origin: [FRONTEND_ORIGIN, 'http://localhost:3000', 'http://localhost:5173'],

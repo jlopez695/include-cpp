@@ -3,7 +3,21 @@
 'use no memo'; // Opt out of React Compiler — Monaco is imperative and breaks under auto-memoization
 
 import { useRef, useState, useEffect } from 'react';
-import Editor, { type OnMount } from '@monaco-editor/react';
+import dynamic from 'next/dynamic';
+import type { OnMount } from '@monaco-editor/react';
+
+const Editor = dynamic(
+  () => import('@monaco-editor/react').then(mod => mod.default),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex-1 bg-[#1e1e1e] flex items-center justify-center">
+        <span className="text-text-mute text-sm">Loading editor...</span>
+      </div>
+    ),
+  },
+);
+
 // Dynamically imported — monaco-vim accesses `window` at module scope
 const loadVim = () => import('monaco-vim').then(m => m.initVimMode);
 import type { ProblemEditorState } from '@/hooks/useProblemEditor';

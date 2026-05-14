@@ -1,23 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { HealthResponse } from '@/lib/types';
+import { useState } from 'react';
 
-export function HealthBanner() {
-  const [warnings, setWarnings] = useState<string[]>([]);
+interface HealthBannerProps {
+  warnings: string[];
+}
+
+export function HealthBanner({ warnings }: HealthBannerProps) {
   const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-    fetch(`${apiBase}/api/health`)
-      .then(r => r.json())
-      .then((data: HealthResponse) => {
-        if (data.warnings.length > 0) setWarnings(data.warnings);
-      })
-      .catch(() => {
-        // Backend not reachable — will show elsewhere
-      });
-  }, []);
 
   if (dismissed || warnings.length === 0) return null;
 

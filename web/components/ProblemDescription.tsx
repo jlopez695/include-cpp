@@ -4,7 +4,11 @@ import { useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import cpp from 'highlight.js/lib/languages/cpp';
+import makefile from 'highlight.js/lib/languages/makefile';
 import { extractCodeText } from '@/lib/clipboard';
+
+const rehypeHighlightOptions = { languages: { cpp, makefile } };
 
 interface ProblemDescriptionProps {
   markdown: string;
@@ -51,7 +55,7 @@ export function ProblemDescription({ markdown }: ProblemDescriptionProps) {
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
+        rehypePlugins={[[rehypeHighlight, rehypeHighlightOptions]]}
         components={{ pre: Pre }}
       >
         {markdown}

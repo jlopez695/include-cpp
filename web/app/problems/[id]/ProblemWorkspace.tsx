@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import type { ProblemDetail, ProblemSummary } from '@/lib/types';
+import { lazy, Suspense, useRef, useState, useEffect } from 'react';
+import type { ProblemDetail } from '@/lib/types';
 import { useProblemEditor } from '@/hooks/useProblemEditor';
 import { useResizable } from '@/hooks/useResizable';
 import { loadUiState, saveUiState } from '@/lib/storage';
@@ -10,16 +10,19 @@ import { ProblemDescription } from '@/components/ProblemDescription';
 import { EditorPanel } from '@/components/EditorPanel';
 import { StatusBar } from '@/components/StatusBar';
 import { HealthBanner } from '@/components/HealthBanner';
-import { Confetti } from '@/components/Confetti';
-import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { langForFile } from '@/lib/lang';
+
+const Confetti = lazy(() => import('@/components/Confetti').then(m => ({ default: m.Confetti })));
+const KeyboardShortcuts = lazy(() => import('@/components/KeyboardShortcuts').then(m => ({ default: m.KeyboardShortcuts })));
 
 interface Props {
   problem: ProblemDetail;
-  problems: ProblemSummary[];
+  prevId: string | null;
+  nextId: string | null;
+  healthWarnings: string[];
 }
 
-export function ProblemWorkspace({ problem, problems }: Props) {
+export function ProblemWorkspace({ problem, prevId, nextId, healthWarnings }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const editor = useProblemEditor(problem);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -60,8 +63,8 @@ export function ProblemWorkspace({ problem, problems }: Props) {
 
   return (
     <>
-      <HealthBanner />
-      <TopBar problem={problem} problems={problems} status={editor.status} />
+      <HealthBanner warnings={healthWarnings} />
+      <TopBar problem={problem} prevId={prevId} nextId={nextId} status={editor.status} />
 
       {/* Body: description | resizer | editor */}
       <div className="flex-1 flex overflow-hidden min-h-0" ref={bodyRef}>
@@ -104,8 +107,10 @@ export function ProblemWorkspace({ problem, problems }: Props) {
         vimMode={vimMode}
       />
 
-      {editor.showConfetti && <Confetti onDone={editor.dismissConfetti} />}
-      <KeyboardShortcuts open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      <Suspense fallback={null}>
+        {editor.showConfetti && <Confetti onDone={editor.dismissConfetti} />}
+        <KeyboardShortcuts open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      </Suspense>
     </>
   );
 }

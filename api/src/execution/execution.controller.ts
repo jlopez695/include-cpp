@@ -86,8 +86,7 @@ export class ExecutionController {
     raw.flushHeaders?.();
 
     const write = (event: StreamEvent) => {
-      raw.write(`event: ${event.kind}\n`);
-      raw.write(`data: ${JSON.stringify(event)}\n\n`);
+      raw.write(`event: ${event.kind}\ndata: ${JSON.stringify(event)}\n\n`);
     };
 
     try {
