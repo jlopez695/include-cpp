@@ -20,9 +20,10 @@ interface Props {
   prevId: string | null;
   nextId: string | null;
   healthWarnings: string[];
+  markdownHtml: string;
 }
 
-export function ProblemWorkspace({ problem, prevId, nextId, healthWarnings }: Props) {
+export function ProblemWorkspace({ problem, prevId, nextId, healthWarnings, markdownHtml }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const editor = useProblemEditor(problem);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -80,7 +81,7 @@ export function ProblemWorkspace({ problem, prevId, nextId, healthWarnings }: Pr
             </svg>
             <span className="text-accent">{problem.id}</span>
           </div>
-          <ProblemDescription markdown={problem.markdown} />
+          <ProblemDescription html={markdownHtml} />
         </section>
 
         {/* Horizontal resizer */}

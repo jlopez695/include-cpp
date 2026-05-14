@@ -144,24 +144,46 @@ describe('Performance configuration', () => {
     });
   });
 
-  describe('ProblemDescription restricts highlight.js languages', () => {
+  describe('Markdown pre-rendered server-side', () => {
     let descSource: string;
+    let serverSource: string;
 
     before(() => {
       descSource = fs.readFileSync(
         path.join(import.meta.dirname, '..', 'components', 'ProblemDescription.tsx'),
         'utf8',
       );
+      serverSource = fs.readFileSync(
+        path.join(import.meta.dirname, '..', 'lib', 'markdown-server.ts'),
+        'utf8',
+      );
     });
 
-    it('imports cpp language specifically', () => {
-      assert.ok(descSource.includes("highlight.js/lib/languages/cpp"),
-        'Should import cpp language subset, not full highlight.js');
+    it('client component does not import react-markdown', () => {
+      assert.ok(!/from\s+['"]react-markdown['"]/.test(descSource),
+        'ProblemDescription must not pull react-markdown into the client bundle');
     });
 
-    it('configures rehypeHighlight with languages option', () => {
-      assert.ok(descSource.includes('languages'),
-        'rehypeHighlight should be configured with specific languages');
+    it('client component does not import remark/rehype/highlight.js', () => {
+      const banned = ['remark-gfm', 'rehype-highlight', 'highlight.js/lib/languages'];
+      for (const dep of banned) {
+        assert.ok(!descSource.includes(dep),
+          `ProblemDescription must not import ${dep} (now server-side only)`);
+      }
+    });
+
+    it('server-side renderer is marked server-only', () => {
+      assert.ok(/['"]server-only['"]/.test(serverSource),
+        'markdown-server.ts should import "server-only" to prevent client bundling');
+    });
+
+    it('server-side renderer restricts highlight.js to cpp + makefile', () => {
+      assert.ok(serverSource.includes('highlight.js/lib/languages/cpp'),
+        'should import cpp grammar specifically');
+      assert.ok(serverSource.includes('highlight.js/lib/languages/makefile'),
+        'should import makefile grammar specifically');
+      assert.ok(/languages:\s*\{\s*cpp\s*,\s*makefile\s*\}/.test(serverSource),
+        'rehypeHighlight should be configured with only cpp + makefile');
     });
   });
 

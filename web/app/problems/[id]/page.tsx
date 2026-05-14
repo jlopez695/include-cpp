@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import { fetchProblem, fetchProblems, fetchHealth } from '@/lib/api';
+import { renderMarkdown } from '@/lib/markdown-server';
+import { findHeavyLazyChunks } from '@/lib/preload-hints';
 import { ProblemWorkspace } from './ProblemWorkspace';
 import Loading from './loading';
 
@@ -28,7 +30,12 @@ export default async function ProblemPage({ params }: Props) {
     notFound();
   }
 
-  const [problems, health] = await Promise.all([fetchProblems(), fetchHealth().catch(() => ({ status: 'ok' as const, warnings: [] }))]);
+  const [problems, health, markdownHtml, preloadChunks] = await Promise.all([
+    fetchProblems(),
+    fetchHealth().catch(() => ({ status: 'ok' as const, warnings: [] })),
+    renderMarkdown(problem.markdown),
+    findHeavyLazyChunks(),
+  ]);
 
   // Compute prev/next IDs server-side to avoid serializing full list to client
   const idx = problems.findIndex(p => p.id === id);
@@ -42,11 +49,15 @@ export default async function ProblemPage({ params }: Props) {
 
   return (
     <Suspense fallback={<Loading />}>
+      {preloadChunks.map(href => (
+        <link key={href} rel="modulepreload" href={href} as="script" />
+      ))}
       <ProblemWorkspace
         problem={problem}
         prevId={prevId}
         nextId={nextId}
         healthWarnings={health.warnings}
+        markdownHtml={markdownHtml}
       />
     </Suspense>
   );
