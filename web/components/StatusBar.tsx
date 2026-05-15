@@ -11,6 +11,7 @@ interface StatusBarProps {
   cursorCol: number;
   compiling: boolean;
   vimMode?: boolean;
+  onShowShortcuts?: () => void;
 }
 
 export function StatusBar({
@@ -21,6 +22,7 @@ export function StatusBar({
   cursorCol,
   compiling,
   vimMode,
+  onShowShortcuts,
 }: StatusBarProps) {
   const healthStatus = useHealthCheck();
   const [dark, setDark] = useState(true);
@@ -100,10 +102,24 @@ export function StatusBar({
         {!isEditable && (
           <span className="text-text-mute italic text-[10px]">read-only</span>
         )}
+        {onShowShortcuts && (
+          <button
+            onClick={onShowShortcuts}
+            title="Keyboard shortcuts (Cmd+?)"
+            className="hit-area-lg w-5 h-5 flex items-center justify-center rounded text-text-mute hover:text-text-bright transition-colors"
+            aria-label="Show keyboard shortcuts"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.1" />
+              <path d="M4.5 4.5C4.5 3.7 5.2 3 6 3C6.8 3 7.5 3.7 7.5 4.5C7.5 5.3 6 5.5 6 6.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+              <circle cx="6" cy="8.5" r="0.5" fill="currentColor" />
+            </svg>
+          </button>
+        )}
         <button
           onClick={toggleTheme}
           title={dark ? 'Switch to light theme' : 'Switch to dark theme'}
-          className="w-5 h-5 flex items-center justify-center rounded text-text-mute hover:text-text-bright transition-colors"
+          className="hit-area-lg w-5 h-5 flex items-center justify-center rounded text-text-mute hover:text-text-bright transition-colors"
           aria-label="Toggle theme"
         >
           {dark ? (

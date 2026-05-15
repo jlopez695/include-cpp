@@ -41,6 +41,9 @@ export default async function ProblemPage({ params }: Props) {
   const idx = problems.findIndex(p => p.id === id);
   const prevId = idx > 0 ? problems[idx - 1].id : null;
   const nextId = idx < problems.length - 1 ? problems[idx + 1].id : null;
+  // Just the IDs (no titles) for the TopBar's progress pill — a few hundred
+  // bytes total even at 60+ problems.
+  const problemIds = problems.map(p => p.id);
 
   // Next.js 16: run work after the response is sent to the client
   after(() => {
@@ -61,6 +64,7 @@ export default async function ProblemPage({ params }: Props) {
         problem={problem}
         prevId={prevId}
         nextId={nextId}
+        problemIds={problemIds}
         healthWarnings={health.warnings}
         markdownHtml={markdownHtml}
       />

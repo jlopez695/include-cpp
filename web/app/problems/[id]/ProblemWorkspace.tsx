@@ -19,11 +19,12 @@ interface Props {
   problem: ProblemDetail;
   prevId: string | null;
   nextId: string | null;
+  problemIds: string[];
   healthWarnings: string[];
   markdownHtml: string;
 }
 
-export function ProblemWorkspace({ problem, prevId, nextId, healthWarnings, markdownHtml }: Props) {
+export function ProblemWorkspace({ problem, prevId, nextId, problemIds, healthWarnings, markdownHtml }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const editor = useProblemEditor(problem);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -65,7 +66,7 @@ export function ProblemWorkspace({ problem, prevId, nextId, healthWarnings, mark
   return (
     <>
       <HealthBanner warnings={healthWarnings} />
-      <TopBar problem={problem} prevId={prevId} nextId={nextId} status={editor.status} />
+      <TopBar problem={problem} prevId={prevId} nextId={nextId} status={editor.status} problemIds={problemIds} />
 
       {/* Body: description | resizer | editor */}
       <div className="flex-1 flex overflow-hidden min-h-0" ref={bodyRef}>
@@ -106,6 +107,7 @@ export function ProblemWorkspace({ problem, prevId, nextId, healthWarnings, mark
         cursorCol={editor.cursorCol}
         compiling={editor.compiling}
         vimMode={vimMode}
+        onShowShortcuts={toggleShortcuts}
       />
 
       <Suspense fallback={null}>

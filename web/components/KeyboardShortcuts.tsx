@@ -46,7 +46,7 @@ export function KeyboardShortcuts({ open, onClose }: KeyboardShortcutsProps) {
           <h2 className="text-[13px] font-semibold text-text-bright">Keyboard Shortcuts</h2>
           <button
             onClick={onClose}
-            className="w-6 h-6 flex items-center justify-center rounded-md text-text-dim hover:text-text-bright hover:bg-bg-3 transition-colors"
+            className="hit-area-lg w-6 h-6 flex items-center justify-center rounded-md text-text-dim hover:text-text-bright hover:bg-bg-3 transition-colors"
             aria-label="Close"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">

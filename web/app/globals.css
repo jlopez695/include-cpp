@@ -300,6 +300,43 @@ kbd {
   color: var(--color-text-bright);
 }
 
+/* ── Peak-End Rule: per-test pass pulse ──
+   Brief green flash when a passing test result mounts. Failures stay
+   plain — only passes get a celebration. Uses the existing --color-good
+   token so the flash matches the app theme; the keyframe fades to
+   transparent so it doesn't compete with the steady-state row colors. */
+@keyframes test-pass-pulse {
+  0%   { background-color: rgba(158, 206, 106, 0.22); }
+  60%  { background-color: rgba(158, 206, 106, 0.10); }
+  100% { background-color: transparent; }
+}
+.test-pass-pulse {
+  animation: test-pass-pulse 800ms ease-out;
+}
+
+/* ── Fitts's Law: hit-area extension for small icon buttons ──
+   Adds an invisible 4px-thick clickable margin around the button without
+   altering its visual size. A 28×28 button becomes a 36×36 click target;
+   a 20×20 button becomes a 28×28 target (still small — use .hit-area-lg
+   on those, which extends 8px and yields ≥36×36 effective). Apply to any
+   small icon button (action-bar toggles, prev/next arrows, modal closes,
+   sidebar collapse/bookmark/random, status-bar theme toggle, etc).
+   Pseudo-element is inert visually but inherits clicks because it lives
+   on the same element. ::before is used so .hover/active rings (which
+   we apply via background/ring on the host) are unaffected. */
+.hit-area { position: relative; }
+.hit-area::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+.hit-area-lg { position: relative; }
+.hit-area-lg::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

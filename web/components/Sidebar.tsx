@@ -136,7 +136,7 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
           {onCollapse && (
             <button
               onClick={onCollapse}
-              className="w-6 h-6 flex items-center justify-center rounded text-text-mute hover:text-text-bright hover:bg-bg-3 transition-colors shrink-0"
+              className="hit-area-lg w-6 h-6 flex items-center justify-center rounded text-text-mute hover:text-text-bright hover:bg-bg-3 transition-colors shrink-0"
               title="Collapse sidebar (Cmd+B)"
               aria-label="Collapse sidebar"
             >
@@ -181,7 +181,7 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
               if (id) router.push(`/problems/${id}`);
             }}
             title="Random problem"
-            className="w-7 h-7 flex items-center justify-center rounded-md text-text-mute hover:text-accent hover:bg-accent/10 transition-colors shrink-0"
+            className="hit-area w-7 h-7 flex items-center justify-center rounded-md text-text-mute hover:text-accent hover:bg-accent/10 transition-colors shrink-0"
             aria-label="Pick a random problem"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -259,7 +259,7 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
               </Link>
               <button
                 onClick={(e) => { e.preventDefault(); handleToggleBookmark(p.id); }}
-                className={`absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded transition-all ${
+                className={`hit-area-lg absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded transition-all ${
                   starred
                     ? 'text-warn opacity-100'
                     : 'text-text-mute opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-warn'

@@ -101,6 +101,21 @@ export function loadStatus(problemId: string): Status {
   return (localStorage.getItem(statusKey(problemId)) as Status) || 'unsolved';
 }
 
+/**
+ * Count how many of the given problem IDs are currently in the 'solved'
+ * state. SSR-safe (returns 0 when window is undefined). Linear scan over
+ * problemIds; for the expected dataset size (a few dozen problems) this
+ * runs in well under a millisecond.
+ */
+export function getSolvedCount(problemIds: string[]): number {
+  if (typeof window === 'undefined') return 0;
+  let count = 0;
+  for (const id of problemIds) {
+    if (loadStatus(id) === 'solved') count++;
+  }
+  return count;
+}
+
 export function saveStatus(
   problemId: string,
   status: Status,

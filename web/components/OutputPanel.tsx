@@ -39,6 +39,7 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests, 
 
   const hasTests = testResults.length > 0;
   const hasFailed = testResults.some(t => t.status !== 'pass');
+  const passedCount = testResults.reduce((n, t) => n + (t.status === 'pass' ? 1 : 0), 0);
   const hasLines = lines.length > 0;
   const isEmpty = !hasTests && !hasLines;
 
@@ -56,8 +57,13 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests, 
             {label || 'Output'}
           </span>
           {hasTests && (
-            <span className="text-[10px] text-text-mute/60 tabular-nums">
-              {testResults.length} tests
+            <span className="text-[10px] tabular-nums" aria-live="polite">
+              <span className={`font-semibold ${passedCount === testResults.length ? 'text-good' : 'text-good/80'}`}>
+                {passedCount}
+              </span>
+              <span className="text-text-mute/60">
+                {' / '}{testResults.length} {testResults.length === 1 ? 'test' : 'tests'}
+              </span>
             </span>
           )}
           {!hasTests && hasLines && (
@@ -160,7 +166,7 @@ function TestResultRow({ result }: { result: TestResult }) {
   const hasFail = !passed && !!result.message;
 
   return (
-    <div className="animate-fade-in">
+    <div className={`animate-fade-in ${passed ? 'test-pass-pulse rounded-md' : ''}`}>
       <button
         onClick={() => hasFail && setExpanded(e => !e)}
         className={`flex items-center gap-2 w-full text-left py-1.5 px-2 rounded-md transition-colors ${

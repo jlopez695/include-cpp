@@ -387,6 +387,8 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
         )}
 
         <div className="flex-1" />
+        {/* Divider: primary actions | editor preferences */}
+        <div className="h-5 w-px bg-border-soft/60 self-center mx-1.5" aria-hidden="true" />
         <button
           onClick={onVimToggle}
           title={vimMode ? 'Disable Vim mode' : 'Enable Vim mode'}
@@ -407,7 +409,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             }}
             disabled={fontSize <= 10}
             title="Decrease font size"
-            className="w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold text-text-mute hover:text-text-dim hover:bg-bg-3 disabled:opacity-30 disabled:cursor-default transition-colors"
+            className="hit-area-lg w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold text-text-mute hover:text-text-dim hover:bg-bg-3 disabled:opacity-30 disabled:cursor-default transition-colors"
             aria-label="Decrease font size"
           >
             A<span className="text-[9px]">-</span>
@@ -422,7 +424,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             }}
             disabled={fontSize >= 24}
             title="Increase font size"
-            className="w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold text-text-mute hover:text-text-dim hover:bg-bg-3 disabled:opacity-30 disabled:cursor-default transition-colors"
+            className="hit-area-lg w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold text-text-mute hover:text-text-dim hover:bg-bg-3 disabled:opacity-30 disabled:cursor-default transition-colors"
             aria-label="Increase font size"
           >
             A<span className="text-[9px]">+</span>
@@ -441,13 +443,15 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
         >
           {tabSize}sp
         </button>
+        {/* Divider: editor preferences | view toggles */}
+        <div className="h-5 w-px bg-border-soft/60 self-center mx-1.5" aria-hidden="true" />
         <button
           onClick={() => {
             setWordWrap(v => !v);
             editor.models.editorRef.current?.updateOptions({ wordWrap: !wordWrap ? 'on' : 'off' });
           }}
           title={wordWrap ? 'Disable word wrap' : 'Enable word wrap'}
-          className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+          className={`hit-area w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
             wordWrap ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
           }`}
           aria-label="Toggle word wrap"
@@ -463,7 +467,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             editor.models.editorRef.current?.updateOptions({ minimap: { enabled: !minimap } });
           }}
           title={minimap ? 'Hide minimap' : 'Show minimap'}
-          className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+          className={`hit-area w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
             minimap ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
           }`}
           aria-label="Toggle minimap"
@@ -482,7 +486,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             });
           }}
           title={diffMode ? 'Close diff view (Cmd+Shift+D)' : 'Compare with starter code (Cmd+Shift+D)'}
-          className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+          className={`hit-area w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
             diffMode ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
           }`}
           aria-label="Toggle diff view"
@@ -506,7 +510,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             }
           }}
           title={splitFile ? 'Close split view' : 'Open split view'}
-          className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+          className={`hit-area w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
             splitFile ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
           }`}
           aria-label="Toggle split editor"
