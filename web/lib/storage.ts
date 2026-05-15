@@ -6,7 +6,7 @@
  * Both modes expose the same interface. Components never know which is active.
  */
 
-import { createClient, supabaseEnabled } from './supabase-browser';
+import { getClient, supabaseEnabled } from './supabase-browser';
 import type { Status } from './types';
 
 function getAnonId(): string {
@@ -57,20 +57,21 @@ export function saveCode(
   }
 
   if (supabaseEnabled) {
-    const sb = createClient();
-    if (!sb) return;
-    // Fire-and-forget upsert
-    sb.from('user_code')
-      .upsert(
-        {
-          user_id: getUserId(),
-          problem_id: problemId,
-          filename,
-          content,
-        },
-        { onConflict: 'user_id,problem_id,filename' },
-      )
-      .then(() => {});
+    // Fire-and-forget — Supabase SDK is dynamically imported on first use.
+    void getClient().then(sb => {
+      if (!sb) return;
+      sb.from('user_code')
+        .upsert(
+          {
+            user_id: getUserId(),
+            problem_id: problemId,
+            filename,
+            content,
+          },
+          { onConflict: 'user_id,problem_id,filename' },
+        )
+        .then(() => {});
+    });
   }
 }
 
@@ -80,13 +81,14 @@ export function clearCode(problemId: string, filenames: string[]): void {
     localStorage.removeItem(codeKey(problemId, f));
   }
   if (supabaseEnabled) {
-    const sb = createClient();
-    if (!sb) return;
-    sb.from('user_code')
-      .delete()
-      .eq('user_id', getUserId())
-      .eq('problem_id', problemId)
-      .then(() => {});
+    void getClient().then(sb => {
+      if (!sb) return;
+      sb.from('user_code')
+        .delete()
+        .eq('user_id', getUserId())
+        .eq('problem_id', problemId)
+        .then(() => {});
+    });
   }
 }
 
@@ -113,20 +115,21 @@ export function saveStatus(
   }
 
   if (supabaseEnabled) {
-    const sb = createClient();
-    if (!sb) return;
-    sb.from('problem_status')
-      .upsert(
-        {
-          user_id: getUserId(),
-          problem_id: problemId,
-          status,
-          passed,
-          total,
-        },
-        { onConflict: 'user_id,problem_id' },
-      )
-      .then(() => {});
+    void getClient().then(sb => {
+      if (!sb) return;
+      sb.from('problem_status')
+        .upsert(
+          {
+            user_id: getUserId(),
+            problem_id: problemId,
+            status,
+            passed,
+            total,
+          },
+          { onConflict: 'user_id,problem_id' },
+        )
+        .then(() => {});
+    });
   }
 }
 
