@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { ServiceWorkerRegistrar } from '@/components/ServiceWorkerRegistrar';
+import { SupabasePrewarmer } from '@/components/SupabasePrewarmer';
 import './globals.css';
 
 // Ship only the weights the codebase actually uses. Audit:
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="h-full">
         {children}
         <ServiceWorkerRegistrar />
+        <SupabasePrewarmer />
       </body>
     </html>
   );
