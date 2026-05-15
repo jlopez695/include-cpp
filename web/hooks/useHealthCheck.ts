@@ -11,6 +11,7 @@ export function useHealthCheck() {
 
   useEffect(() => {
     let mounted = true;
+    let id: ReturnType<typeof setInterval> | undefined;
 
     async function check() {
       try {
@@ -27,11 +28,33 @@ export function useHealthCheck() {
       }
     }
 
-    check();
-    const id = setInterval(check, POLL_INTERVAL);
+    function start() {
+      if (id !== undefined) return;
+      check();
+      id = setInterval(check, POLL_INTERVAL);
+    }
+
+    function stop() {
+      if (id === undefined) return;
+      clearInterval(id);
+      id = undefined;
+    }
+
+    // Skip polling while the tab is in the background. Resumes with an
+    // immediate fresh check on visibility return so the status indicator
+    // reflects current state instead of stale 30-seconds-ago data.
+    function onVisibility() {
+      if (document.hidden) stop();
+      else start();
+    }
+
+    if (!document.hidden) start();
+    document.addEventListener('visibilitychange', onVisibility);
+
     return () => {
       mounted = false;
-      clearInterval(id);
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
 

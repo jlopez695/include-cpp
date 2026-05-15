@@ -52,6 +52,11 @@ export default async function ProblemPage({ params }: Props) {
       {preloadChunks.map(href => (
         <link key={href} rel="modulepreload" href={href} as="script" />
       ))}
+      {/* Warm the HTTP cache before useHealthCheck (in StatusBar) fires its
+          first /api/health request post-hydration. The server-rendered
+          healthWarnings already gave us the boot-time snapshot; this is for
+          the client-side poller that takes over after mount. */}
+      <link rel="preload" as="fetch" href="/api/health" crossOrigin="anonymous" />
       <ProblemWorkspace
         problem={problem}
         prevId={prevId}
