@@ -41,6 +41,49 @@ export function loadCode(problemId: string, filename: string): string | null {
   return localStorage.getItem(codeKey(problemId, filename));
 }
 
+// Debounce the network round-trip part of saveCode. Monaco fires
+// onDidChangeModelContent on every keystroke; at typing speed that's
+// ~10 upserts/sec without coalescing. localStorage stays immediate
+// (it's microseconds, and we want a page reload to keep the most
+// recent character), but the Supabase upsert is deferred until the
+// user pauses. The map is keyed per-(problemId, filename) so saves to
+// different files don't cancel each other.
+const SUPABASE_SAVE_DEBOUNCE_MS = 500;
+const pendingSupabaseSaves = new Map<string, ReturnType<typeof setTimeout>>();
+
+function cancelPendingSupabaseSave(problemId: string, filename: string): void {
+  const key = `${problemId}:${filename}`;
+  const pending = pendingSupabaseSaves.get(key);
+  if (pending !== undefined) {
+    clearTimeout(pending);
+    pendingSupabaseSaves.delete(key);
+  }
+}
+
+function scheduleSupabaseSave(problemId: string, filename: string, content: string): void {
+  const key = `${problemId}:${filename}`;
+  const existing = pendingSupabaseSaves.get(key);
+  if (existing !== undefined) clearTimeout(existing);
+  pendingSupabaseSaves.set(
+    key,
+    setTimeout(() => {
+      pendingSupabaseSaves.delete(key);
+      void getClient().then(sb => {
+        if (!sb) return;
+        void sb.from('user_code').upsert(
+          {
+            user_id: getUserId(),
+            problem_id: problemId,
+            filename,
+            content,
+          },
+          { onConflict: 'user_id,problem_id,filename' },
+        );
+      });
+    }, SUPABASE_SAVE_DEBOUNCE_MS),
+  );
+}
+
 export function saveCode(
   problemId: string,
   filename: string,
@@ -57,21 +100,7 @@ export function saveCode(
   }
 
   if (supabaseEnabled) {
-    // Fire-and-forget — Supabase SDK is dynamically imported on first use.
-    void getClient().then(sb => {
-      if (!sb) return;
-      sb.from('user_code')
-        .upsert(
-          {
-            user_id: getUserId(),
-            problem_id: problemId,
-            filename,
-            content,
-          },
-          { onConflict: 'user_id,problem_id,filename' },
-        )
-        .then(() => {});
-    });
+    scheduleSupabaseSave(problemId, filename, content);
   }
 }
 
@@ -79,6 +108,10 @@ export function clearCode(problemId: string, filenames: string[]): void {
   if (typeof window === 'undefined') return;
   for (const f of filenames) {
     localStorage.removeItem(codeKey(problemId, f));
+    // Drop any pending debounced upsert for this file — without this,
+    // the timer would fire AFTER the .delete() below and recreate the
+    // row from the last typed content, undoing the reset.
+    cancelPendingSupabaseSave(problemId, f);
   }
   if (supabaseEnabled) {
     void getClient().then(sb => {
