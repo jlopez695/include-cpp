@@ -81,6 +81,33 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
     setTabSize(savedTabSize);
   }, []);
 
+  // Reset per-problem UI state (split pane + diff pane) whenever the set
+  // of files changes — i.e. a problem switch. Without this, splitFile is
+  // carried over to the new problem and points at a filename that doesn't
+  // exist in the new problem's models, so:
+  //   - editor.models.getContent(splitFile) returns '' (the split pane
+  //     renders blank)
+  //   - the file-picker <select> in the split chrome has `value={splitFile}`
+  //     with no matching <option>, so the dropdown silently desyncs from
+  //     its visible state (the user sees the first file selected but the
+  //     ref-of-truth is still the dead filename)
+  //   - the chrome's toggle button stays "active" because splitFile is
+  //     truthy, so the user has to click it twice to actually open a real
+  //     split.
+  // diffMode has the same per-problem semantics — comparing against an
+  // earlier problem's starter code on a new problem is meaningless.
+  //
+  // The "did the problem change" signal is the joined filename list: if
+  // any file is added, removed, or renamed the key changes; if the user
+  // re-navigates to the exact same problem (a no-op for the editor) it
+  // doesn't. The effect is a no-op when state is already cleared, so the
+  // first-mount run costs nothing.
+  const filesKey = editor.allFiles.map(f => f.name).join('|');
+  useEffect(() => {
+    setSplitFile(null);
+    setDiffMode(false);
+  }, [filesKey]);
+
   const outputResize = useResizable(
     'output-height',
     220,
