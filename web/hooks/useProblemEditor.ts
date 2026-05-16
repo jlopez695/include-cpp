@@ -248,6 +248,17 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     for (const [name, content] of Object.entries(starterRef.current)) {
       models.updateContent(name, content);
     }
+    // Monaco's onDidChangeModelContent is wired to the editor, not to each
+    // model — so model.setValue() above only fires the listener for the
+    // currently-attached model. For every other file, modifiedFiles still
+    // carries a stale entry and shows a "modified" dot on the tab even
+    // though the buffer is now identical to the starter. Clear the set
+    // here; the next real edit re-populates it correctly via onContentChange.
+    setModifiedFiles(new Set());
+    // Compiler markers from the previous run point at lines that no longer
+    // exist (or no longer mean what they used to). Drop them on reset so the
+    // editor doesn't show red squiggles on freshly-restored starter code.
+    models.clearAllDiagnostics();
   };
 
   const setCursor = (line: number, col: number) => {
