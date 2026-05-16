@@ -117,14 +117,35 @@ export function spawnLimited(
     // stdout/stderr may still have buffered chunks not yet delivered to
     // 'data' listeners. `close` fires after all streams have been drained.
     let exitInfo: { code: number | null; signal: NodeJS.Signals | null } | null = null;
+    let settled = false;
+    const settle = (info: { exitCode: number; signal: NodeJS.Signals | null; killedByTimeout: boolean }) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(wallTimer);
+      options.signal?.removeEventListener('abort', onAbort);
+      resolve(info);
+    };
     child.once('exit', (code, signal) => {
       exitInfo = { code, signal };
     });
     child.once('close', (code, signal) => {
-      clearTimeout(wallTimer);
-      options.signal?.removeEventListener('abort', onAbort);
       const info = exitInfo ?? { code, signal };
-      resolve({ exitCode: info.code ?? 1, signal: info.signal, killedByTimeout });
+      settle({ exitCode: info.code ?? 1, signal: info.signal, killedByTimeout });
+    });
+    // If the process could not be spawned at all (ENOENT for `bash`,
+    // EACCES on cwd, EAGAIN under fork pressure), Node fires 'error' on
+    // the ChildProcess and 'close' may NEVER fire — leaving this promise
+    // unresolved forever. Pre-fix, that hang propagated up through
+    // runMakefile / runCmake's `await compile.done` and stranded the
+    // SSE controller mid-response: the InFlightRegistry slot for
+    // (user, problem) stayed acquired indefinitely, so every subsequent
+    // /run and /test for that user came back as a 409 Conflict until
+    // the server restarted. Treating 'error' as a non-zero settle with
+    // an error-shaped exit code (Node convention: 1 for unspecified
+    // failure) lets the runner emit a clean compile-end event and
+    // release the in-flight slot in its finally.
+    child.once('error', () => {
+      settle({ exitCode: 1, signal: null, killedByTimeout });
     });
   });
 
