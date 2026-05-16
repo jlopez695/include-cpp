@@ -12,14 +12,66 @@
 import { getClient, supabaseEnabled } from './supabase-browser';
 import type { Status } from './types';
 
+// Session-fallback id used when localStorage and/or crypto.randomUUID are
+// both unavailable. Stays the same for the lifetime of the JS module so
+// every getAnonId() call inside one page session is internally consistent
+// (the cmake-runner stages files at .builds/<userId>/...; flipping the id
+// mid-session would orphan the previous staging tree and force a full
+// rebuild on the next run).
+let sessionFallbackId: string | null = null;
+
+/**
+ * Generate a v4-ish id that survives without crypto.randomUUID. Insecure
+ * http origins (not localhost) and a handful of locked-down browser modes
+ * don't expose randomUUID — without this fallback the throw escaped
+ * getAnonId, broke saveCode/saveStatus/getUserId at the call site, and
+ * any /run or /test (which sends userId in the body) would fail before
+ * it reached the network. The fallback is good enough as an opaque
+ * per-session identifier; we don't depend on its uniqueness across
+ * users (it's namespaced per-browser regardless).
+ */
+function generateId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch {
+    /* randomUUID can throw SecurityError in some sandboxed iframes */
+  }
+  // Two Math.random() calls × base36 yield ~25 chars of entropy. Prefix
+  // makes the source visible if it ever appears in a Supabase row or
+  // a backend log so an operator can spot "this id wasn't from a
+  // healthy browser".
+  return `anon-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
 function getAnonId(): string {
   if (typeof window === 'undefined') return 'ssr';
-  let id = localStorage.getItem('potd:anonymous-id');
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem('potd:anonymous-id', id);
+
+  // localStorage.getItem can throw SecurityError under Safari Private
+  // Mode and the iOS Lockdown Mode profile. Pre-fix, that throw escaped
+  // and took down every saveCode / saveStatus / getUserId() caller on
+  // those browsers — the whole app effectively broke. Catch it and fall
+  // back to an in-memory id for this session.
+  try {
+    const existing = localStorage.getItem('potd:anonymous-id');
+    if (existing) return existing;
+  } catch {
+    if (!sessionFallbackId) sessionFallbackId = generateId();
+    return sessionFallbackId;
   }
-  return id;
+
+  const fresh = generateId();
+  try {
+    localStorage.setItem('potd:anonymous-id', fresh);
+  } catch {
+    // localStorage exists for read but writes are blocked (quota
+    // exhausted, private mode that allows reads only). Keep the id in
+    // memory so subsequent calls in this session don't re-roll it.
+    if (!sessionFallbackId) sessionFallbackId = fresh;
+    return sessionFallbackId;
+  }
+  return fresh;
 }
 
 export function getUserId(): string {
