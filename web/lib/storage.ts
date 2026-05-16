@@ -245,29 +245,49 @@ export function saveStatus(
   total: number,
 ): void {
   if (typeof window === 'undefined') return;
-  if (status === 'unsolved') {
+  const isUnsolved = status === 'unsolved';
+  if (isUnsolved) {
     localStorage.removeItem(statusKey(problemId));
   } else {
     localStorage.setItem(statusKey(problemId), status);
   }
 
   if (supabaseEnabled) {
+    // Match the localStorage shape on the remote: a removed key locally
+    // should be a deleted row remotely, not an upserted row with
+    // status='unsolved'. Same logic as scheduleSupabaseDelete in saveCode:
+    // an explicit unsolved row reads back the same as no row today
+    // (loadStatus returns 'unsolved' for missing entries), but the two
+    // states diverge the moment any read-from-Supabase reconciliation
+    // is added, and an explicit row also wastes a write for the most
+    // common transition (no row → no row → no row when the user opens
+    // a fresh problem, fails its tests once, then never solves it).
     void getClient().then(sb => {
       if (!sb) return;
-      sb.from('problem_status')
-        .upsert(
-          {
-            user_id: getUserId(),
-            problem_id: problemId,
-            status,
-            passed,
-            total,
-          },
-          { onConflict: 'user_id,problem_id' },
-        )
-        .then(({ error }) => {
-          if (error) console.warn('[supabase] problem_status upsert failed:', error);
-        });
+      if (isUnsolved) {
+        sb.from('problem_status')
+          .delete()
+          .eq('user_id', getUserId())
+          .eq('problem_id', problemId)
+          .then(({ error }) => {
+            if (error) console.warn('[supabase] problem_status delete failed:', error);
+          });
+      } else {
+        sb.from('problem_status')
+          .upsert(
+            {
+              user_id: getUserId(),
+              problem_id: problemId,
+              status,
+              passed,
+              total,
+            },
+            { onConflict: 'user_id,problem_id' },
+          )
+          .then(({ error }) => {
+            if (error) console.warn('[supabase] problem_status upsert failed:', error);
+          });
+      }
     });
   }
 
