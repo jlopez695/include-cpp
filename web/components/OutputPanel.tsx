@@ -21,8 +21,24 @@ interface OutputPanelProps {
 export function OutputPanel({ lines, testResults, label, summary, onRerunTests, onClear }: OutputPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  // Stick-to-bottom: only auto-scroll on new output if the user is already
+  // near the bottom. If they've scrolled up to read earlier output mid-run,
+  // we leave their scroll position alone instead of yanking them down on
+  // every incoming SSE event. Ref (not state) so scroll events don't
+  // trigger re-renders.
+  const stickToBottomRef = useRef(true);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // 40px tolerance covers sub-pixel rounding and one trailing line so a
+    // quick scroll-tap doesn't "unstick" the panel by accident.
+    const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
+    stickToBottomRef.current = distanceFromBottom < 40;
+  };
 
   useEffect(() => {
+    if (!stickToBottomRef.current) return;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [lines.length, testResults.length]);
@@ -101,7 +117,11 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests, 
       </div>
 
       {/* Content */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 font-mono text-[12.5px] bg-[#111114]">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-3 font-mono text-[12.5px] bg-[#111114]"
+      >
         {isEmpty ? (
           <EmptyState />
         ) : (
