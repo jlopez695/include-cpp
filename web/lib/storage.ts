@@ -161,6 +161,17 @@ export function recordSolveDate(): void {
   }
 }
 
+// Calendar-day diff between two YYYY-MM-DD strings, stable across DST.
+// Parsing with `new Date(str + 'T00:00:00')` gives a local-time Date, so
+// crossing a DST transition produces a 23h or 25h "day" and a diff that
+// isn't a whole 1 — silently snapping the streak loop. Date.UTC has no
+// DST, so this is always an integer number of calendar days.
+function calendarDaysApart(a: string, b: string): number {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  return Math.round((Date.UTC(ay, am - 1, ad) - Date.UTC(by, bm - 1, bd)) / 86400000);
+}
+
 export function getStreak(): number {
   if (typeof window === 'undefined') return 0;
   const raw = localStorage.getItem('potd:solve-dates');
@@ -175,10 +186,7 @@ export function getStreak(): number {
 
   let streak = 1;
   for (let i = 1; i < sorted.length; i++) {
-    const curr = new Date(sorted[i - 1] + 'T00:00:00');
-    const prev = new Date(sorted[i] + 'T00:00:00');
-    const diff = (curr.getTime() - prev.getTime()) / 86400000;
-    if (diff === 1) streak++;
+    if (calendarDaysApart(sorted[i - 1], sorted[i]) === 1) streak++;
     else break;
   }
   return streak;

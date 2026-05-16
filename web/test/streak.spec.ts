@@ -1,5 +1,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // Mock localStorage for Node.js tests
 const store: Record<string, string> = {};
@@ -118,5 +120,101 @@ describe('streak tracking', () => {
     const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
     store['potd:solve-dates'] = JSON.stringify([threeDaysAgo, yesterday, today]);
     assert.equal(getStreak(), 2); // only yesterday + today
+  });
+});
+
+describe('streak is stable across DST transitions', () => {
+  // The bug this guards against: getStreak() used to parse each stored
+  // date with `new Date('YYYY-MM-DDT00:00:00')` — a local-time Date — and
+  // diff the milliseconds. On spring-forward, two consecutive calendar
+  // days produce a 23-hour diff (≈0.958); on fall-back, 25 hours
+  // (≈1.042). Either way `diff === 1` is false and the streak snaps for
+  // any user in a DST-observing timezone (~half the planet).
+  //
+  // We can't deterministically set the runtime TZ here (V8 caches it
+  // before tests run), so we verify the fix two ways:
+  //   1. A source-text guard that the implementation no longer uses the
+  //      buggy local-time Date(str + 'T00:00:00') pattern.
+  //   2. A behavior test that pins Date.now() to a date AFTER a known
+  //      DST week and stores solves through it. With the fix's Date.UTC
+  //      arithmetic, the result is TZ-independent and the streak is
+  //      counted correctly; the broken code returned a shorter streak
+  //      when this same test ran in America/Los_Angeles.
+
+  beforeEach(() => {
+    for (const key of Object.keys(store)) delete store[key];
+  });
+
+  it('source no longer uses local-time Date(str+T00:00:00) for diffs', () => {
+    const src = readFileSync(fileURLToPath(new URL('../lib/storage.ts', import.meta.url)), 'utf8');
+    // Local-time midnight parse was the bug source; ensure it's gone
+    // from the streak path. (Unrelated UTC uses elsewhere are fine.)
+    assert.doesNotMatch(src, /new Date\(\s*sorted\[/);
+    // And ensure the fix's UTC-based helper exists and is used.
+    assert.match(src, /Date\.UTC\(/);
+    assert.match(src, /calendarDaysApart/);
+  });
+
+  it('counts a US-DST spring-forward week as 4 consecutive days', () => {
+    // March 8 2026 is US spring-forward. Mock today to March 11 so the
+    // most-recent solve (Mar 10) is "yesterday" and the loop walks back
+    // across the DST boundary at Mar 8.
+    const realNow = Date.now;
+    const realDate = globalThis.Date;
+    class MockDate extends realDate {
+      constructor(...args: any[]) {
+        if (args.length === 0) {
+          super('2026-03-11T12:00:00Z');
+        } else {
+          // @ts-expect-error spread to Date constructor
+          super(...args);
+        }
+      }
+      static now() { return realDate.parse('2026-03-11T12:00:00Z'); }
+    }
+    (globalThis as any).Date = MockDate;
+    try {
+      store['potd:solve-dates'] = JSON.stringify([
+        '2026-03-07', // before DST
+        '2026-03-08', // DST transition day
+        '2026-03-09', // after DST
+        '2026-03-10', // yesterday (relative to mocked today)
+      ]);
+      assert.equal(getStreak(), 4);
+    } finally {
+      (globalThis as any).Date = realDate;
+      Date.now = realNow;
+    }
+  });
+
+  it('counts a US-DST fall-back week as 4 consecutive days', () => {
+    // November 1 2026 is US fall-back. The buggy code computed a 25h
+    // diff across this boundary, which also isn't === 1.
+    const realDate = globalThis.Date;
+    const realNow = Date.now;
+    class MockDate extends realDate {
+      constructor(...args: any[]) {
+        if (args.length === 0) {
+          super('2026-11-04T12:00:00Z');
+        } else {
+          // @ts-expect-error spread to Date constructor
+          super(...args);
+        }
+      }
+      static now() { return realDate.parse('2026-11-04T12:00:00Z'); }
+    }
+    (globalThis as any).Date = MockDate;
+    try {
+      store['potd:solve-dates'] = JSON.stringify([
+        '2026-10-31',
+        '2026-11-01', // DST transition day
+        '2026-11-02',
+        '2026-11-03', // yesterday
+      ]);
+      assert.equal(getStreak(), 4);
+    } finally {
+      (globalThis as any).Date = realDate;
+      Date.now = realNow;
+    }
   });
 });
