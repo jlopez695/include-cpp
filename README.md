@@ -4,7 +4,7 @@ Local archive + web solver for the CS 225 Problem of the Day series. Each proble
 
 ## Stack
 
-- **Frontend** (`web/`): Next.js 15 (App Router) · React 19 · Tailwind CSS v4 · Monaco Editor
+- **Frontend** (`web/`): Next.js 16 (App Router) · React 19 · Tailwind CSS v4 · Monaco Editor
 - **Backend** (`api/`): NestJS 11 on Fastify · ESM · `@swc-node/register`
 - **Database** (optional): Supabase (Postgres + RLS). Without it, everything persists in localStorage.
 - **Compile pipeline**: `make` / `cmake`, prefixed with `ccache`. Makefile problems use a custom fork-per-test grader harness; CMake problems (e.g. POTD64) use Catch2 + CTest with JUnit XML parsing. Output streams over Server-Sent Events.
