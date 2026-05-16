@@ -122,12 +122,17 @@ export async function runCmake(
       passed = parsed.passed;
       total = parsed.total;
       for (const t of parsed.tests) {
-        emit({
-          kind: 'sentinel',
-          event: t.failure
-            ? { type: 'test', name: t.name, status: 'fail', message: t.failure, durationMs: t.durationMs ?? undefined }
-            : { type: 'test', name: t.name, status: 'pass', durationMs: t.durationMs ?? undefined },
-        });
+        // Map JUnit status → sentinel status. `error` (test crashed / couldn't
+        // run) becomes `crash` in the wire format the UI consumes; the other
+        // three names align 1:1.
+        const sentinelStatus =
+          t.status === 'error' ? 'crash' as const : t.status;
+        const base = { type: 'test' as const, name: t.name, status: sentinelStatus };
+        const withMessage = t.message != null ? { ...base, message: t.message } : base;
+        const withDuration = t.durationMs != null
+          ? { ...withMessage, durationMs: t.durationMs }
+          : withMessage;
+        emit({ kind: 'sentinel', event: withDuration });
       }
       emit({ kind: 'sentinel', event: { type: 'result', passed, total } });
     }
