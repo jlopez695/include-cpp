@@ -10,12 +10,15 @@ import type { StreamCallback } from './event-emitter.js';
  * CMake-based runner with persistent per-user, per-problem build directory.
  *
  * Strategy:
- *   1. Build dir at `.builds/<userId>/<problemId>/` — scoped per user so two
- *      users hitting the same problem don't trash each other's incremental
- *      state. Same user concurrent runs are serialized by InFlightRegistry.
- *   2. Mirror user-edited files into the source tree (they live in named
- *      paths like `src/final.cpp`); cmake re-detects on file change.
- *   3. `cmake --build` with ccache as the compiler launcher.
+ *   1. Per-user staging tree at `.builds/<userId>/<problemId>/src/` mirrors
+ *      `problems/<problemId>/`. The canonical problems/ dir is never written
+ *      to — two users hitting the same problem cannot race each other's
+ *      source state, and an interrupted run can't leave problems/ dirty.
+ *   2. User-edited files are overlaid into the staging src tree on top of
+ *      the canonical mirror.
+ *   3. `cmake -S <staging-src> -B <staging-build>` with ccache as the
+ *      compiler launcher. Identical-content files keep their mtimes so
+ *      ninja/make incremental builds stay valid across runs.
  *   4. `ctest --output-junit results.xml` to get structured per-test results
  *      instead of regex-scanning stdout.
  *   5. Parse JUnit XML → emit per-test sentinel-shaped events.
@@ -30,125 +33,162 @@ export async function runCmake(
 ): Promise<{ passed: number; total: number; exitCode: number }> {
   const problemDir = path.join(PROBLEMS_DIR, problemId);
   const safeUser = sanitizeUserId(userId);
-  const buildDir = path.join(BUILD_ROOT, safeUser, problemId);
+  const userDir = path.join(BUILD_ROOT, safeUser, problemId);
+  const srcDir = path.join(userDir, 'src');
+  const buildDir = path.join(userDir, 'build');
+  await fs.promises.mkdir(srcDir, { recursive: true });
   await fs.promises.mkdir(buildDir, { recursive: true });
   await fs.promises.mkdir(CCACHE_DIR, { recursive: true });
 
-  // Snapshot user file overlays into the source tree. We restore on exit so
-  // we don't leave the canonical problems/ dir mutated.
-  const originals = new Map<string, string | null>();
-  for (const filename of Object.keys(userFiles)) {
-    const filePath = path.join(problemDir, filename);
-    try {
-      originals.set(filename, await fs.promises.readFile(filePath, 'utf8'));
-    } catch {
-      originals.set(filename, null);
-    }
+  // Mirror the canonical problem dir into the per-user staging tree, then
+  // overlay user code on top. The mirror also wipes any stale files left by
+  // a previous run (e.g. user-added files no longer present in this run).
+  await mirrorDir(problemDir, srcDir);
+  for (const [filename, content] of Object.entries(userFiles)) {
+    const filePath = path.join(srcDir, filename);
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await writeIfDiffers(filePath, content);
   }
 
   let passed = 0;
   let total = 0;
   let exitCode = 0;
 
-  try {
-    for (const [filename, content] of Object.entries(userFiles)) {
-      const filePath = path.join(problemDir, filename);
-      await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.promises.writeFile(filePath, content);
-    }
+  const env: NodeJS.ProcessEnv = { ...process.env, CCACHE_DIR };
 
-    const env: NodeJS.ProcessEnv = { ...process.env, CCACHE_DIR };
+  // Configure (idempotent — fast on cached builds)
+  emit({ kind: 'compile-start' });
+  const ccacheFlags = TOOLCHAIN.ccache
+    ? '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache'
+    : '';
+  const configure = spawnLimited(
+    `cmake -S "${srcDir}" -B "${buildDir}" ${ccacheFlags}`,
+    { cwd: buildDir, env, limits: { cpuSeconds: 60, wallMs: 60_000 }, signal },
+  );
+  // Only pipe stderr from configure/build — stdout is noisy CMake progress
+  pipeStderrOnly(configure.child, emit);
+  const configureResult = await configure.done;
+  if (configureResult.exitCode !== 0) {
+    emit({ kind: 'compile-end', exitCode: configureResult.exitCode, killedByTimeout: configureResult.killedByTimeout });
+    return { passed: 0, total: 0, exitCode: configureResult.exitCode };
+  }
 
-    // Configure (idempotent — fast on cached builds)
-    emit({ kind: 'compile-start' });
-    const ccacheFlags = TOOLCHAIN.ccache
-      ? '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache'
-      : '';
-    const configure = spawnLimited(
-      `cmake -S "${problemDir}" -B "${buildDir}" ${ccacheFlags}`,
-      { cwd: buildDir, env, limits: { cpuSeconds: 60, wallMs: 60_000 }, signal },
-    );
-    // Only pipe stderr from configure/build — stdout is noisy CMake progress
-    pipeStderrOnly(configure.child, emit);
-    const configureResult = await configure.done;
-    if (configureResult.exitCode !== 0) {
-      emit({ kind: 'compile-end', exitCode: configureResult.exitCode, killedByTimeout: configureResult.killedByTimeout });
-      return { passed: 0, total: 0, exitCode: configureResult.exitCode };
-    }
+  // Build
+  const build = spawnLimited(`cmake --build "${buildDir}" --parallel`, {
+    cwd: buildDir,
+    env,
+    limits: { cpuSeconds: 60, wallMs: 60_000 },
+    signal,
+  });
+  pipeStderrOnly(build.child, emit);
+  const buildResult = await build.done;
+  emit({ kind: 'compile-end', exitCode: buildResult.exitCode, killedByTimeout: buildResult.killedByTimeout });
+  if (buildResult.exitCode !== 0) {
+    return { passed: 0, total: 0, exitCode: buildResult.exitCode };
+  }
 
-    // Build
-    const build = spawnLimited(`cmake --build "${buildDir}" --parallel`, {
+  // Ensure CTestTestfile.cmake exists — some CS 225 CMakeLists.txt omit
+  // enable_testing(), so CMake never generates the entry-point file that
+  // ctest reads. catch_discover_tests() still writes *_include.cmake files
+  // as a post-build step; we just need to create the glue file.
+  await ensureCTestFile(buildDir);
+
+  // Run or test
+  emit({ kind: 'run-start' });
+  if (mode === 'run') {
+    // Find the assignment binary — convention: <buildDir>/<problemId>_<*> or first built executable.
+    const bin = await findRunnableBinary(buildDir);
+    const run = spawnLimited(bin, { cwd: buildDir, env, signal });
+    pipeRawChild(run.child, emit);
+    const runResult = await run.done;
+    exitCode = runResult.exitCode;
+    emit({ kind: 'run-end', exitCode: runResult.exitCode, killedByTimeout: runResult.killedByTimeout });
+  } else {
+    const junitPath = path.join(buildDir, 'results.xml');
+    await fs.promises.rm(junitPath, { force: true });
+    const ctest = spawnLimited(`ctest --output-junit "${junitPath}" --output-on-failure`, {
       cwd: buildDir,
       env,
-      limits: { cpuSeconds: 60, wallMs: 60_000 },
       signal,
     });
-    pipeStderrOnly(build.child, emit);
-    const buildResult = await build.done;
-    emit({ kind: 'compile-end', exitCode: buildResult.exitCode, killedByTimeout: buildResult.killedByTimeout });
-    if (buildResult.exitCode !== 0) {
-      return { passed: 0, total: 0, exitCode: buildResult.exitCode };
-    }
+    // Suppress ctest's raw stdout (progress lines) — we parse JUnit XML
+    // for structured results. Keep stderr for unexpected failures.
+    pipeStderrOnly(ctest.child, emit);
+    const ctestResult = await ctest.done;
+    exitCode = ctestResult.exitCode;
 
-    // Ensure CTestTestfile.cmake exists — some CS 225 CMakeLists.txt omit
-    // enable_testing(), so CMake never generates the entry-point file that
-    // ctest reads. catch_discover_tests() still writes *_include.cmake files
-    // as a post-build step; we just need to create the glue file.
-    await ensureCTestFile(buildDir);
-
-    // Run or test
-    emit({ kind: 'run-start' });
-    if (mode === 'run') {
-      // Find the assignment binary — convention: <buildDir>/<problemId>_<*> or first built executable.
-      const bin = await findRunnableBinary(buildDir);
-      const run = spawnLimited(bin, { cwd: buildDir, env, signal });
-      pipeRawChild(run.child, emit);
-      const runResult = await run.done;
-      exitCode = runResult.exitCode;
-      emit({ kind: 'run-end', exitCode: runResult.exitCode, killedByTimeout: runResult.killedByTimeout });
-    } else {
-      const junitPath = path.join(buildDir, 'results.xml');
-      await fs.promises.rm(junitPath, { force: true });
-      const ctest = spawnLimited(`ctest --output-junit "${junitPath}" --output-on-failure`, {
-        cwd: buildDir,
-        env,
-        signal,
-      });
-      // Suppress ctest's raw stdout (progress lines) — we parse JUnit XML
-      // for structured results. Keep stderr for unexpected failures.
-      pipeStderrOnly(ctest.child, emit);
-      const ctestResult = await ctest.done;
-      exitCode = ctestResult.exitCode;
-
-      if (fs.existsSync(junitPath)) {
-        const parsed = parseJUnit(await fs.promises.readFile(junitPath, 'utf8'));
-        passed = parsed.passed;
-        total = parsed.total;
-        for (const t of parsed.tests) {
-          emit({
-            kind: 'sentinel',
-            event: t.failure
-              ? { type: 'test', name: t.name, status: 'fail', message: t.failure, durationMs: t.durationMs ?? undefined }
-              : { type: 'test', name: t.name, status: 'pass', durationMs: t.durationMs ?? undefined },
-          });
-        }
-        emit({ kind: 'sentinel', event: { type: 'result', passed, total } });
+    if (fs.existsSync(junitPath)) {
+      const parsed = parseJUnit(await fs.promises.readFile(junitPath, 'utf8'));
+      passed = parsed.passed;
+      total = parsed.total;
+      for (const t of parsed.tests) {
+        emit({
+          kind: 'sentinel',
+          event: t.failure
+            ? { type: 'test', name: t.name, status: 'fail', message: t.failure, durationMs: t.durationMs ?? undefined }
+            : { type: 'test', name: t.name, status: 'pass', durationMs: t.durationMs ?? undefined },
+        });
       }
-      emit({ kind: 'run-end', exitCode, killedByTimeout: ctestResult.killedByTimeout });
+      emit({ kind: 'sentinel', event: { type: 'result', passed, total } });
     }
-  } finally {
-    // Restore original files
-    for (const [filename, original] of originals) {
-      const filePath = path.join(problemDir, filename);
-      if (original === null) {
-        await fs.promises.rm(filePath, { force: true }).catch(() => {});
-      } else {
-        await fs.promises.writeFile(filePath, original).catch(() => {});
-      }
-    }
+    emit({ kind: 'run-end', exitCode, killedByTimeout: ctestResult.killedByTimeout });
   }
 
   return { passed, total, exitCode };
+}
+
+/**
+ * Make `dest` a content-identical copy of `src` (recursive). Files whose
+ * bytes already match are left alone so cmake/ninja incremental builds keep
+ * their mtime-based change detection working. Anything present in `dest`
+ * but absent from `src` is removed.
+ *
+ * Exported for tests.
+ */
+export async function mirrorDir(src: string, dest: string): Promise<void> {
+  await fs.promises.mkdir(dest, { recursive: true });
+  const srcEntries = await fs.promises.readdir(src, { withFileTypes: true });
+  const srcNames = new Set(srcEntries.map(e => e.name));
+
+  const destEntries = await fs.promises.readdir(dest, { withFileTypes: true }).catch(() => [] as fs.Dirent[]);
+  for (const entry of destEntries) {
+    if (!srcNames.has(entry.name)) {
+      await fs.promises.rm(path.join(dest, entry.name), { recursive: true, force: true });
+    }
+  }
+
+  for (const entry of srcEntries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      await mirrorDir(srcPath, destPath);
+    } else if (entry.isFile()) {
+      await copyFileIfDiffers(srcPath, destPath);
+    }
+    // symlinks and other special entries are intentionally skipped — CS 225
+    // problem trees don't use them and we don't want to follow them blindly.
+  }
+}
+
+async function copyFileIfDiffers(src: string, dest: string): Promise<void> {
+  const srcContent = await fs.promises.readFile(src);
+  try {
+    const destContent = await fs.promises.readFile(dest);
+    if (srcContent.equals(destContent)) return;
+  } catch {
+    /* dest doesn't exist — fall through to write */
+  }
+  await fs.promises.writeFile(dest, srcContent);
+}
+
+async function writeIfDiffers(filePath: string, content: string): Promise<void> {
+  try {
+    const current = await fs.promises.readFile(filePath, 'utf8');
+    if (current === content) return;
+  } catch {
+    /* not yet present — fall through to write */
+  }
+  await fs.promises.writeFile(filePath, content);
 }
 
 /** Reduce a user id to a filesystem-safe path segment. */
