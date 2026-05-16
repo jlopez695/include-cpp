@@ -58,6 +58,7 @@ test('runCmake: canonical problems/<id>/ is byte-identical after a (failing) run
     'POTD64',
     { 'src/final.cpp': BROKEN_FINAL },
     'test',
+    'main',
     e => events.push(e),
     ctrl.signal,
     'regression-canonical-immutable',
@@ -84,8 +85,8 @@ test('runCmake: two concurrent users on the same problem do not corrupt canonica
   const ctrlA = new AbortController();
   const ctrlB = new AbortController();
   const [, ] = await Promise.all([
-    runCmake('POTD64', { 'src/final.cpp': aCode }, 'test', () => {}, ctrlA.signal, 'race-user-a'),
-    runCmake('POTD64', { 'src/final.cpp': bCode }, 'test', () => {}, ctrlB.signal, 'race-user-b'),
+    runCmake('POTD64', { 'src/final.cpp': aCode }, 'test', 'main', () => {}, ctrlA.signal, 'race-user-a'),
+    runCmake('POTD64', { 'src/final.cpp': bCode }, 'test', 'main', () => {}, ctrlB.signal, 'race-user-b'),
   ]);
 
   const after = await snapshotTree(problemDir);

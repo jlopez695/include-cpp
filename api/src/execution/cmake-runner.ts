@@ -27,6 +27,7 @@ export async function runCmake(
   problemId: string,
   userFiles: Record<string, string>,
   mode: 'run' | 'test',
+  entrypoint: string,
   emit: StreamCallback,
   signal: AbortSignal,
   userId: string,
@@ -96,8 +97,13 @@ export async function runCmake(
   // Run or test
   emit({ kind: 'run-start' });
   if (mode === 'run') {
-    // Find the assignment binary — convention: <buildDir>/<problemId>_<*> or first built executable.
-    const bin = await findRunnableBinary(buildDir);
+    // Pick the assignment binary by name (meta.entrypoint). Falling back
+    // to "first executable in build dir" is unsafe: CS 225 cmake setups
+    // build a test runner ALONGSIDE the assignment binary in the same
+    // directory, and readdir order is filesystem-dependent — we don't
+    // want /run silently invoking the Catch2 test harness because
+    // `test` happened to come before `main`.
+    const bin = await findRunnableBinary(buildDir, entrypoint);
     const run = spawnLimited(bin, { cwd: buildDir, env, signal });
     pipeRawChild(run.child, emit);
     const runResult = await run.done;
@@ -220,18 +226,45 @@ function pipeStderrOnly(
   child.stderr?.on('data', (data: string) => emit({ kind: 'stderr', data }));
 }
 
-async function findRunnableBinary(buildDir: string): Promise<string> {
-  // Heuristic: pick the first executable file in the build dir (not a dir).
+/**
+ * Resolve the path of the assignment binary to invoke for /run.
+ *
+ * Preference order:
+ *   1. <buildDir>/<entrypoint> — meta.entrypoint names the binary the
+ *      problem author wants /run to invoke. CS 225 cmake problems
+ *      typically build BOTH this and a separate Catch2 `test` binary
+ *      in the same directory; without this precedence rule, readdir
+ *      order would silently invoke the test harness on /run.
+ *   2. Any executable file in the build dir — last-resort heuristic for
+ *      problems where meta.entrypoint doesn't directly correspond to a
+ *      built binary name (haven't seen this in the current corpus, but
+ *      it preserves the previous behavior rather than hard-failing).
+ *
+ * Exported for tests.
+ */
+export async function findRunnableBinary(buildDir: string, entrypoint: string): Promise<string> {
+  // 1. Direct match on entrypoint — fast path, no directory scan.
+  const direct = path.join(buildDir, entrypoint);
+  try {
+    const st = await fs.promises.stat(direct);
+    if (st.isFile()) {
+      await fs.promises.access(direct, fs.constants.X_OK);
+      return `./${entrypoint}`;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  // 2. Fallback: first executable file in the build dir.
   const entries = await fs.promises.readdir(buildDir, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.isFile()) {
-      const p = path.join(buildDir, entry.name);
-      try {
-        await fs.promises.access(p, fs.constants.X_OK);
-        return `./${entry.name}`;
-      } catch {
-        /* skip */
-      }
+    if (!entry.isFile()) continue;
+    const p = path.join(buildDir, entry.name);
+    try {
+      await fs.promises.access(p, fs.constants.X_OK);
+      return `./${entry.name}`;
+    } catch {
+      /* skip */
     }
   }
   throw new Error('No runnable binary found in build directory');

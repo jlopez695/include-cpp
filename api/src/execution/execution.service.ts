@@ -49,7 +49,7 @@ export class ExecutionService {
     this.validateRunRequest(problemId, userFiles);
     const meta = this.problems.readMeta(problemId);
     if (meta.buildType === 'cmake') {
-      return runCmake(problemId, userFiles, mode, emit, signal, userId);
+      return runCmake(problemId, userFiles, mode, meta.entrypoint, emit, signal, userId);
     }
     return runMakefile(problemId, userFiles, mode, meta.entrypoint, emit, signal);
   }
