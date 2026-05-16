@@ -49,15 +49,25 @@ export function ProblemWorkspace({ problem, prevId, nextId, healthWarnings, mark
 
   const toggleShortcuts = () => setShowShortcuts(v => !v);
   useEffect(() => {
+    // The keyboard handler calls setShowShortcuts directly (via the
+    // setter's reducer form, which doesn't capture stale state) so
+    // this effect has no reactive deps. Listing `toggleShortcuts` in
+    // the dep array was a foot-gun: it's an inline arrow function
+    // declared above on every render, so the effect cleanup + setup
+    // re-ran on EVERY parent render — removing and re-adding the
+    // window keydown listener once per output line during a test run.
+    // Cheap individually, but ~1000s of times during a long run is
+    // measurable; and it briefly leaves a window with NO listener
+    // attached, so a Cmd+? pressed in that window goes nowhere.
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === '?') {
         e.preventDefault();
-        toggleShortcuts();
+        setShowShortcuts(v => !v);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [toggleShortcuts]);
+  }, []);
 
   return (
     <>
