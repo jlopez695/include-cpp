@@ -113,6 +113,31 @@ async function copyDir(src: string, dest: string, exclude: Set<string>): Promise
   }
 }
 
+/**
+ * Run a chunk of stdout through the sentinel parser and route the results.
+ * Sentinel lines become structured events; everything else is emitted as
+ * raw stdout (with the sentinel markup stripped). The on-data path and the
+ * on-end flush path share this helper — see pipeChild below.
+ *
+ * Exported for tests so we can pin the end-of-stream flush behavior (a
+ * complete sentinel without a trailing newline must still parse as a
+ * structured event, not leak verbatim into raw stdout) without spinning
+ * up a real subprocess.
+ */
+export function dispatchStdout(
+  text: string,
+  emit: StreamCallback,
+  onSentinel?: (ev: import('./sentinel.js').SentinelEvent) => void,
+): void {
+  const events = parseSentinels(text);
+  for (const ev of events) {
+    onSentinel?.(ev);
+    emit({ kind: 'sentinel', event: ev });
+  }
+  const clean = stripSentinels(text);
+  if (clean) emit({ kind: 'stdout', data: clean });
+}
+
 function pipeChild(
   child: import('node:child_process').ChildProcess,
   emit: StreamCallback,
@@ -127,22 +152,30 @@ function pipeChild(
     if (lastNewline < 0) return;
     const ready = stdoutTail.slice(0, lastNewline + 1);
     stdoutTail = stdoutTail.slice(lastNewline + 1);
-
-    const events = parseSentinels(ready);
-    for (const ev of events) {
-      onSentinel?.(ev);
-      emit({ kind: 'sentinel', event: ev });
-    }
-    const clean = stripSentinels(ready);
-    if (clean) emit({ kind: 'stdout', data: clean });
+    dispatchStdout(ready, emit, onSentinel);
   };
 
   child.stdout?.setEncoding('utf8');
   child.stderr?.setEncoding('utf8');
   child.stdout?.on('data', (data: string) => consumeStdout(data));
   child.stdout?.on('end', () => {
-    if (stdoutTail) emit({ kind: 'stdout', data: stdoutTail });
-    stdoutTail = '';
+    // The leftover tail may be either:
+    //   (a) trailing user text without a final newline (the common case
+    //       when a problem prints "Hello" with no `endl` and exits), or
+    //   (b) a complete sentinel emitted without a trailing newline.
+    //
+    // Case (b) hits whenever fflush is skipped + the OS doesn't flush
+    // line-buffered stdout on exit (rare but possible with abrupt SIGKILL
+    // mid-line, custom buffering, or a future harness author who drops
+    // the `\n` from printf). Before this change the tail was dumped as
+    // RAW stdout — meaning the result sentinel was BOTH lost from the
+    // structured event stream AND leaked verbatim into the user-visible
+    // output panel. Running tail through the same parser as the on-data
+    // path collapses both cases correctly.
+    if (stdoutTail) {
+      dispatchStdout(stdoutTail, emit, onSentinel);
+      stdoutTail = '';
+    }
   });
   child.stderr?.on('data', (data: string) => emit({ kind: 'stderr', data }));
 }
