@@ -9,6 +9,7 @@ export class ProblemsService implements OnModuleInit {
   private readonly logger = new Logger(ProblemsService.name);
   private listCache: ProblemSummary[] | null = null;
   private detailCache = new Map<string, ProblemDetail>();
+  private metaCache = new Map<string, Meta>();
 
   onModuleInit() {
     this.populateCache();
@@ -18,6 +19,7 @@ export class ProblemsService implements OnModuleInit {
     const ids = this.readIds();
     this.listCache = ids.map(id => {
       const meta = this.readMetaFromDisk(id);
+      this.metaCache.set(id, meta);
       return { id, title: meta.title };
     });
 
@@ -73,7 +75,14 @@ export class ProblemsService implements OnModuleInit {
   }
 
   readMeta(id: string): Meta {
-    return this.readMetaFromDisk(id);
+    const cached = this.metaCache.get(id);
+    if (cached) return cached;
+    // Cache miss for an id not seen at boot — fall back to disk (and
+    // populate the cache so subsequent calls hit it). readMetaFromDisk
+    // throws NotFoundException for unknown ids.
+    const meta = this.readMetaFromDisk(id);
+    this.metaCache.set(id, meta);
+    return meta;
   }
 
   list(): ProblemSummary[] {

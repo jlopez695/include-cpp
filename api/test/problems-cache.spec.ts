@@ -67,4 +67,42 @@ describe('ProblemsService in-memory cache', () => {
     const sorted = [...ids].sort();
     assert.deepStrictEqual(ids, sorted, 'IDs should be sorted');
   });
+
+  // readMeta() is invoked on every code-execution request (runStream reads
+  // meta.buildType to dispatch makefile vs cmake). It used to bypass the
+  // cache and re-read meta.json from disk every time — this regression
+  // test pins the cached behavior so we don't regress to per-request fs.
+  it('readMeta() returns the same cached reference for known problems', () => {
+    const service = new ProblemsService();
+    service.onModuleInit();
+
+    const id = service.listIds()[0];
+    const a = service.readMeta(id);
+    const b = service.readMeta(id);
+    assert.strictEqual(a, b, 'readMeta() should return the cached object reference');
+  });
+
+  it('readMeta() exposes the meta fields used by the execution dispatcher', () => {
+    const service = new ProblemsService();
+    service.onModuleInit();
+
+    const id = service.listIds()[0];
+    const meta = service.readMeta(id);
+    // These are the only fields the runners read; if any drift to undefined
+    // a run/test request would fail in surprising ways.
+    assert.ok(meta.buildType === 'makefile' || meta.buildType === 'cmake',
+      'buildType drives runner dispatch — must be a known value');
+    assert.ok(typeof meta.entrypoint === 'string' && meta.entrypoint.length > 0);
+    assert.ok(Array.isArray(meta.editableFiles));
+  });
+
+  it('readMeta() throws NotFoundException for unknown problem', () => {
+    const service = new ProblemsService();
+    service.onModuleInit();
+
+    assert.throws(
+      () => service.readMeta('NONEXISTENT_PROBLEM_XYZ'),
+      { name: 'NotFoundException' },
+    );
+  });
 });
