@@ -63,29 +63,42 @@ describe('storage.getAnonId tolerates broken localStorage / missing randomUUID',
     );
   });
 
-  it('localStorage.getItem is wrapped in try/catch', () => {
+  it('localStorage.getItem is wrapped via safeGetItem (which try/catches)', () => {
     // Safari Private Mode throws SecurityError on every access. A bare
     // `localStorage.getItem(...)` propagates that throw all the way out
-    // of saveCode / useSSE.run / etc.
+    // of saveCode / useSSE.run / etc. The fix routes every read in
+    // this file (including the one in getAnonId) through a shared
+    // safeGetItem helper that catches and returns null on failure.
+    assert.match(
+      src,
+      /function safeGetItem\([\s\S]+?try\s*\{[\s\S]+?localStorage\.getItem[\s\S]+?\}\s*catch/,
+      'safeGetItem must wrap localStorage.getItem in try/catch',
+    );
     const fn = src.match(/function getAnonId\([\s\S]+?\n\}/);
     assert.ok(fn, 'could not locate getAnonId');
     assert.match(
       fn![0],
-      /try\s*\{[\s\S]+?localStorage\.getItem\(\s*['"]potd:anonymous-id['"]/,
-      'localStorage.getItem on the anonymous-id key must be try-wrapped',
+      /safeGetItem\(\s*['"]potd:anonymous-id['"]/,
+      'getAnonId must read via safeGetItem, not a raw localStorage.getItem',
     );
   });
 
-  it('localStorage.setItem is wrapped in try/catch', () => {
+  it('localStorage.setItem is wrapped via safeSetItem (which try/catches)', () => {
     // QuotaExceededError on full storage, SecurityError on private mode.
-    // The set is separately guarded so that a failed READ doesn't fall
-    // through to a write that also throws.
+    // safeSetItem returns a boolean so callers can fall back when the
+    // write was dropped — getAnonId uses that signal to switch to its
+    // in-memory sessionFallbackId path.
+    assert.match(
+      src,
+      /function safeSetItem\([\s\S]+?try\s*\{[\s\S]+?localStorage\.setItem[\s\S]+?\}\s*catch/,
+      'safeSetItem must wrap localStorage.setItem in try/catch',
+    );
     const fn = src.match(/function getAnonId\([\s\S]+?\n\}/);
     assert.ok(fn);
     assert.match(
       fn![0],
-      /try\s*\{[\s\S]+?localStorage\.setItem\(\s*['"]potd:anonymous-id['"]/,
-      'localStorage.setItem on the anonymous-id key must be try-wrapped',
+      /safeSetItem\(\s*['"]potd:anonymous-id['"]/,
+      'getAnonId must write via safeSetItem, not a raw localStorage.setItem',
     );
   });
 
