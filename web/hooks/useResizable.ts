@@ -15,6 +15,30 @@ export function useResizable(
   const sizeRef = useRef(size);
   sizeRef.current = size;
 
+  // Mirror getContainer and bounds in refs so the mousemove/mouseup
+  // effect below doesn't need them in its dep array.
+  //
+  // Both callers (EditorPanel, ProblemWorkspace) pass these as fresh
+  // values every render:
+  //   getContainer: () => myRef.current   (a brand-new arrow function)
+  //   bounds:       [20, 70]              (a brand-new array literal)
+  //
+  // Listing either in the effect deps rebinds the global window
+  // mousemove/mouseup listeners on every parent re-render. The host
+  // ProblemWorkspace re-renders constantly while a test run is in
+  // flight (output lines arriving, sentinel events, cursor moves),
+  // so without these refs we get hundreds of rebinds during a single
+  // run. Worse, if the user happens to be dragging the resizer at the
+  // same time as a test run streams output, the global listeners are
+  // rebound MID-DRAG — every cleanup → re-add cycle opens a microtask
+  // window where mouseup/mousemove can land between listeners and
+  // either drop events or strand `dragging.current = true` after the
+  // mouse has been released.
+  const getContainerRef = useRef(getContainer);
+  const boundsRef = useRef(bounds);
+  getContainerRef.current = getContainer;
+  boundsRef.current = bounds;
+
   // Restore from localStorage after hydration to avoid SSR mismatch
   useEffect(() => {
     const saved = loadUiState(storageKey, initial);
@@ -31,16 +55,17 @@ export function useResizable(
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!dragging.current) return;
-      const el = getContainer();
+      const el = getContainerRef.current();
       if (!el) return;
       const rect = el.getBoundingClientRect();
+      const [boundsMin, boundsMax] = boundsRef.current;
       let next: number;
       if (direction === 'horizontal') {
         next = ((e.clientX - rect.left) / rect.width) * 100;
       } else {
         next = rect.bottom - e.clientY;
       }
-      next = Math.max(bounds[0], Math.min(bounds[1], next));
+      next = Math.max(boundsMin, Math.min(boundsMax, next));
       setSize(next);
     };
 
@@ -58,7 +83,7 @@ export function useResizable(
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [direction, getContainer, bounds, storageKey]);
+  }, [direction, storageKey]);
 
   return { size, onMouseDown };
 }
