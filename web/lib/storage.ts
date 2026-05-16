@@ -12,6 +12,49 @@
 import { getClient, supabaseEnabled } from './supabase-browser';
 import type { Status } from './types';
 
+// Safe localStorage wrappers. Every call site in this file used to hit
+// `localStorage.*` directly. Three things in the wild can break that:
+//
+//   - Safari Private Mode and iOS Lockdown Mode raise SecurityError on
+//     EVERY access (read, write, remove) for many content settings.
+//   - QuotaExceededError on full storage (mostly setItem).
+//   - The page running inside a sandboxed iframe with `allow-same-origin`
+//     stripped — `localStorage` access throws regardless of mode.
+//
+// Without these wrappers a single unguarded call escapes its caller and
+// in the worst spots (useResizable's mouseup handler — a global window
+// listener) lands as an uncaughtException. Routing every call through
+// these helpers makes "the user's storage is broken" degrade to "the
+// app forgets the user's preferences for this session" instead of
+// "the app stops working." Reads return null on failure; writes and
+// removes silently drop. There's no UI for surfacing the failure today —
+// the cost of a quiet drop is much smaller than the cost of a hard crash.
+function safeGetItem(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    /* SecurityError / QuotaExceededError — drop the write */
+    return false;
+  }
+}
+
+function safeRemoveItem(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* SecurityError — drop the removal */
+  }
+}
+
 // Session-fallback id used when localStorage and/or crypto.randomUUID are
 // both unavailable. Stays the same for the lifetime of the JS module so
 // every getAnonId() call inside one page session is internally consistent
@@ -47,31 +90,19 @@ function generateId(): string {
 
 function getAnonId(): string {
   if (typeof window === 'undefined') return 'ssr';
-
-  // localStorage.getItem can throw SecurityError under Safari Private
-  // Mode and the iOS Lockdown Mode profile. Pre-fix, that throw escaped
-  // and took down every saveCode / saveStatus / getUserId() caller on
-  // those browsers — the whole app effectively broke. Catch it and fall
-  // back to an in-memory id for this session.
-  try {
-    const existing = localStorage.getItem('potd:anonymous-id');
-    if (existing) return existing;
-  } catch {
-    if (!sessionFallbackId) sessionFallbackId = generateId();
-    return sessionFallbackId;
-  }
+  const existing = safeGetItem('potd:anonymous-id');
+  if (existing) return existing;
 
   const fresh = generateId();
-  try {
-    localStorage.setItem('potd:anonymous-id', fresh);
-  } catch {
-    // localStorage exists for read but writes are blocked (quota
-    // exhausted, private mode that allows reads only). Keep the id in
-    // memory so subsequent calls in this session don't re-roll it.
-    if (!sessionFallbackId) sessionFallbackId = fresh;
-    return sessionFallbackId;
-  }
-  return fresh;
+  if (safeSetItem('potd:anonymous-id', fresh)) return fresh;
+
+  // localStorage couldn't persist (Safari Private Mode, quota exceeded,
+  // sandboxed iframe). Keep the id in memory so subsequent calls within
+  // this page session don't re-roll. The cmake-runner stages files at
+  // .builds/<userId>/...; flipping the id mid-session would orphan the
+  // staging tree and force a full rebuild on the next /run.
+  if (!sessionFallbackId) sessionFallbackId = fresh;
+  return sessionFallbackId;
 }
 
 export function getUserId(): string {
@@ -87,13 +118,10 @@ const codeKey = (problemId: string, filename: string) =>
 
 export function loadCode(problemId: string, filename: string): string | null {
   if (typeof window === 'undefined') return null;
-
-  if (supabaseEnabled) {
-    // Supabase read is async — for initial load we still seed from localStorage
-    // as a cache. The hook will reconcile with Supabase on mount.
-    return localStorage.getItem(codeKey(problemId, filename));
-  }
-  return localStorage.getItem(codeKey(problemId, filename));
+  // Both branches do the same thing today — Supabase reads happen later,
+  // not on initial load. Routing through safeGetItem keeps a private-mode
+  // SecurityError from bricking the editor at problem-load time.
+  return safeGetItem(codeKey(problemId, filename));
 }
 
 // Debounce the network round-trip part of saveCode. Monaco fires
@@ -196,9 +224,9 @@ export function saveCode(
   const matchesStarter = content === starterContent;
 
   if (matchesStarter) {
-    localStorage.removeItem(key);
+    safeRemoveItem(key);
   } else {
-    localStorage.setItem(key, content);
+    safeSetItem(key, content);
   }
 
   if (supabaseEnabled) {
@@ -221,7 +249,7 @@ export function saveCode(
 export function clearCode(problemId: string, filenames: string[]): void {
   if (typeof window === 'undefined') return;
   for (const f of filenames) {
-    localStorage.removeItem(codeKey(problemId, f));
+    safeRemoveItem(codeKey(problemId, f));
     // Drop any pending debounced upsert for this file — without this,
     // the timer would fire AFTER the .delete() below and recreate the
     // row from the last typed content, undoing the reset.
@@ -247,7 +275,7 @@ const statusKey = (problemId: string) => `potd:status:${problemId}`;
 
 export function loadStatus(problemId: string): Status {
   if (typeof window === 'undefined') return 'unsolved';
-  return (localStorage.getItem(statusKey(problemId)) as Status) || 'unsolved';
+  return (safeGetItem(statusKey(problemId)) as Status) || 'unsolved';
 }
 
 /**
@@ -299,9 +327,9 @@ export function saveStatus(
   if (typeof window === 'undefined') return;
   const isUnsolved = status === 'unsolved';
   if (isUnsolved) {
-    localStorage.removeItem(statusKey(problemId));
+    safeRemoveItem(statusKey(problemId));
   } else {
-    localStorage.setItem(statusKey(problemId), status);
+    safeSetItem(statusKey(problemId), status);
   }
 
   if (supabaseEnabled) {
@@ -361,7 +389,7 @@ export function saveStatus(
 // clears their localStorage. The defensive path is invisible on the
 // happy path; it only kicks in when storage is already broken.
 function readStringArray(key: string): string[] {
-  const raw = localStorage.getItem(key);
+  const raw = safeGetItem(key);
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -379,7 +407,7 @@ export function recordSolveDate(): void {
   let mutated = false;
   if (!dates.includes(today)) {
     dates.push(today);
-    localStorage.setItem('potd:solve-dates', JSON.stringify(dates));
+    safeSetItem('potd:solve-dates', JSON.stringify(dates));
     mutated = true;
   }
   // Only notify when the underlying solve-dates set actually changed —
@@ -429,7 +457,7 @@ export interface BestResult {
 
 export function loadBestResult(problemId: string): BestResult | null {
   if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem(`potd:best:${problemId}`);
+  const raw = safeGetItem(`potd:best:${problemId}`);
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -455,8 +483,7 @@ export function saveBestResult(problemId: string, passed: number, total: number)
   if (typeof window === 'undefined') return false;
   const existing = loadBestResult(problemId);
   if (existing && existing.passed >= passed && existing.total === total) return false;
-  localStorage.setItem(`potd:best:${problemId}`, JSON.stringify({ passed, total }));
-  return true;
+  return safeSetItem(`potd:best:${problemId}`, JSON.stringify({ passed, total }));
 }
 
 /* ── Bookmarks ── */
@@ -479,11 +506,11 @@ export function toggleBookmark(problemId: string): boolean {
   const idx = ids.indexOf(problemId);
   if (idx >= 0) {
     ids.splice(idx, 1);
-    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(ids));
+    safeSetItem(BOOKMARKS_KEY, JSON.stringify(ids));
     return false;
   }
   ids.push(problemId);
-  localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(ids));
+  safeSetItem(BOOKMARKS_KEY, JSON.stringify(ids));
   return true;
 }
 
@@ -491,9 +518,10 @@ export function toggleBookmark(problemId: string): boolean {
 
 export function loadUiState<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
+  const raw = safeGetItem(`potd:ui:${key}`);
+  if (!raw) return fallback;
   try {
-    const raw = localStorage.getItem(`potd:ui:${key}`);
-    return raw ? (JSON.parse(raw) as T) : fallback;
+    return JSON.parse(raw) as T;
   } catch {
     return fallback;
   }
@@ -501,5 +529,8 @@ export function loadUiState<T>(key: string, fallback: T): T {
 
 export function saveUiState<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(`potd:ui:${key}`, JSON.stringify(value));
+  // No-op on private-mode failure. The biggest hot path is useResizable's
+  // mouseup handler (global window listener — a throw here would surface
+  // as uncaughtException), so the silent-drop semantics matter.
+  safeSetItem(`potd:ui:${key}`, JSON.stringify(value));
 }
