@@ -70,10 +70,16 @@ export class ExecutionController {
     this.execution.validateRunRequest(id, body.files);
 
     const userId = body.userId ?? 'anonymous';
-    const key = `${userId}:${id}:${mode}`;
+    // Key is per (user, problem) — NOT per (user, problem, mode). /run and
+    // /test for the same user+problem share the per-user cmake staging tree
+    // at .builds/<user>/<problem>/{src,build}; running both concurrently
+    // races on mirrorDir, cmake configure, cmake --build, and ctest's
+    // results.xml. A second operation must wait for the first to finish
+    // (or get a 409) rather than corrupting the build dir.
+    const key = `${userId}:${id}`;
 
     if (!this.inFlight.acquire(key)) {
-      throw new ConflictException(`A ${mode} is already in flight for ${id}`);
+      throw new ConflictException(`An execution is already in flight for ${id}`);
     }
 
     const controller = new AbortController();

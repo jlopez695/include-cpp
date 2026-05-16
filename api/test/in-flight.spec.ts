@@ -21,10 +21,14 @@ test('different users can run the same problem concurrently', () => {
   assert.equal(r.acquire('bob:POTD0:run'), true);
 });
 
-test('different modes for same user+problem are independent', () => {
+test('a second key for the same user+problem is rejected while one is held', () => {
+  // The controller composes its key as `${userId}:${id}` (no mode suffix)
+  // precisely so /run and /test for the same user+problem can't race on
+  // the shared per-user cmake staging tree. This test pins that property
+  // at the registry layer using the same key shape the controller emits.
   const r = new InFlightRegistry();
-  assert.equal(r.acquire('alice:POTD0:run'), true);
-  assert.equal(r.acquire('alice:POTD0:test'), true);
+  assert.equal(r.acquire('alice:POTD0'), true);
+  assert.equal(r.acquire('alice:POTD0'), false);
 });
 
 test('size getter reflects the number of active entries', () => {
