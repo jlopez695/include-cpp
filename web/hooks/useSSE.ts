@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import type { StreamEvent, SentinelEvent } from '@/lib/types';
 import { getUserId } from '@/lib/storage';
 
@@ -119,6 +119,20 @@ export function useSSE() {
     abortRef.current?.abort();
     abortRef.current = null;
   };
+
+  // Abort any in-flight stream when the host component unmounts. Without
+  // this the fetch reader keeps draining for the entire wall-clock
+  // duration of the spawn (up to 60s), even after the user navigates
+  // away — wasting bandwidth and keeping the server-side InFlightRegistry
+  // slot held longer than it needs to be. The setState calls in the
+  // reader loop also continue firing after unmount; React 18+ silently
+  // no-ops those, but they're real work that doesn't need to happen.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, []);
 
   return { run, abort, ...state };
 }

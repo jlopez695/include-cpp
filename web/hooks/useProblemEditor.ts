@@ -118,6 +118,23 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
 
     // Try loading into Monaco — will no-op if editor hasn't mounted yet
     loadIntoModels();
+
+    return () => {
+      // Abort any in-flight SSE stream when the user navigates to a new
+      // problem. Pre-fix the OLD problem's run kept streaming after the
+      // navigation: ProblemWorkspace doesn't unmount on /problems/:id
+      // changes (Next.js reuses the component instance, just swaps props),
+      // so useSSE's abortRef stayed live and the fetch reader kept firing
+      // dispatch() callbacks. Those callbacks called setOutputLines /
+      // setTestResults via captured-stable setters → state for the NEW
+      // problem received OLD problem's stdout, sentinel events, and
+      // compile-end markers. Visible bug: navigate mid-test-run and see
+      // half a stale test result list appear under the freshly-loaded
+      // problem statement. Aborting in cleanup runs BEFORE the new
+      // effect's setOutputLines([]) clear, so the clear lands on top of
+      // an already-quiet stream.
+      sse.abort();
+    };
   }, [problem.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const editableNames = Object.keys(problem.files);
