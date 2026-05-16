@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { CCACHE_DIR, PROBLEMS_DIR, SHARED_INCLUDE_DIR } from '../common/paths.js';
 import { TOOLCHAIN } from '../common/toolchain.js';
-import { spawnLimited } from './resource-limits.js';
+import { spawnLimited, shellQuote } from './resource-limits.js';
 import { parseSentinels, stripSentinels } from './sentinel.js';
 import type { StreamCallback } from './event-emitter.js';
 
@@ -88,7 +88,7 @@ export async function runMakefile(
     }
 
     emit({ kind: 'run-start' });
-    const run = spawnLimited(`./${entrypoint}`, { cwd: tmpDir, env, signal });
+    const run = spawnLimited(shellQuote(`./${entrypoint}`), { cwd: tmpDir, env, signal });
     pipeChild(run.child, emit);
     const runResult = await run.done;
     emit({ kind: 'run-end', exitCode: runResult.exitCode, killedByTimeout: runResult.killedByTimeout });

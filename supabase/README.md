@@ -1,6 +1,6 @@
 # Supabase setup
 
-This site stores per-user code edits, problem status, and UI state in Supabase.
+This site stores per-user code edits and problem status in Supabase. UI state (split sizes, etc.) is reserved for future cross-device sync — today it lives in localStorage only (see `web/lib/storage.ts`).
 
 ## One-time setup
 
@@ -31,7 +31,7 @@ This site stores per-user code edits, problem status, and UI state in Supabase.
 |---|---|---|
 | `user_code` | User's edited file contents (only when different from starter) | `(user_id, problem_id, filename)` |
 | `problem_status` | Solved / attempted state + pass counts | `(user_id, problem_id)` |
-| `ui_state` | Split sizes, last active problem, etc. (jsonb) | `user_id` |
+| `ui_state` | *Reserved schema for future cross-device UI-state sync. Not yet wired in code — `loadUiState` / `saveUiState` are localStorage-only today.* | `user_id` |
 
 RLS is enabled on all three — every row is scoped to `auth.uid()`.
 

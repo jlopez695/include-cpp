@@ -17,6 +17,33 @@
 
 import { spawn, ChildProcess } from 'node:child_process';
 
+/**
+ * POSIX-safe single-quote escape for a single shell word.
+ *
+ * {@link spawnLimited} always wraps its command in `bash -c '...'` so that
+ * ulimit can be applied — there is no `shell: false` fast path. That means
+ * any filesystem path or argument interpolated into the command string is
+ * subject to word splitting on whitespace, glob expansion on `*?[`, and
+ * variable expansion on `$`. Callers that splice in author-controlled
+ * paths (e.g. `meta.entrypoint` from a problem's meta.json) must run them
+ * through this helper or the shell will misparse anything that isn't a
+ * bare identifier.
+ *
+ * The escape strategy is the standard POSIX one: wrap in single quotes,
+ * and escape any literal single quote as `'\''` (close, escaped quote,
+ * reopen). Examples:
+ *   shellQuote("main")           === "'main'"
+ *   shellQuote("./hello world")  === "'./hello world'"
+ *   shellQuote("with'apostrophe")=== "'with'\\''apostrophe'"
+ *
+ * No-op-safe for already-safe inputs: the surrounding quotes are dropped
+ * by bash before exec, so the resulting argv is identical to the unquoted
+ * form when the input had no shell metacharacters.
+ */
+export function shellQuote(word: string): string {
+  return `'${word.replace(/'/g, "'\\''")}'`;
+}
+
 export interface ResourceLimits {
   /** CPU time in seconds (ulimit -t). */
   cpuSeconds: number;

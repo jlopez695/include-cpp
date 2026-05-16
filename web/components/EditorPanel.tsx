@@ -293,7 +293,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
               theme="vs-dark"
               value={editor.models.getContent(splitFile)}
               options={{
-                fontSize: 13,
+                fontSize,
                 fontFamily: '"JetBrains Mono", "Fira Code", "Menlo", monospace',
                 fontLigatures: true,
                 minimap: { enabled: false },
@@ -301,8 +301,8 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
                 readOnly: true,
                 renderLineHighlight: 'none',
                 lineNumbers: 'on',
-                wordWrap: 'off',
-                tabSize: 2,
+                wordWrap: wordWrap ? 'on' : 'off',
+                tabSize,
                 padding: { top: 12, bottom: 12 },
               }}
             />

@@ -22,8 +22,17 @@ export function ServiceWorkerRegistrar() {
     if (process.env.NODE_ENV !== 'production') {
       navigator.serviceWorker.getRegistrations().then(regs => {
         for (const reg of regs) {
+          // The outer .catch on getRegistrations does NOT propagate up
+          // from the per-registration unregister() chain — those promises
+          // are detached. A spec-allowed rejection here (rare, but
+          // happens e.g. when the SW state machine is mid-installation)
+          // would surface as an unhandled rejection in the browser
+          // console, contradicting the file-level "failures are non-fatal
+          // (logged)" contract. Each inner promise needs its own catch.
           reg.unregister().then(ok => {
             if (ok) console.info('[sw] unregistered stale dev worker');
+          }).catch(err => {
+            console.warn('[sw] failed to unregister stale dev worker:', err);
           });
         }
       }).catch(() => {});

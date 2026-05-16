@@ -1,7 +1,10 @@
 /**
  * Persistence layer that works in two modes:
  * 1. Dev mode (no Supabase): localStorage with a stable anonymous ID
- * 2. Production mode: Supabase tables (user_code, problem_status, ui_state)
+ * 2. Production mode: Supabase tables (user_code, problem_status).
+ *    The ui_state table exists in the schema but is reserved for future
+ *    cross-device sync — loadUiState / saveUiState below are
+ *    localStorage-only today (source of truth for UI prefs).
  *
  * Both modes expose the same interface. Components never know which is active.
  */
@@ -70,15 +73,27 @@ function scheduleSupabaseSave(problemId: string, filename: string, content: stri
       pendingSupabaseSaves.delete(key);
       void getClient().then(sb => {
         if (!sb) return;
-        void sb.from('user_code').upsert(
-          {
-            user_id: getUserId(),
-            problem_id: problemId,
-            filename,
-            content,
-          },
-          { onConflict: 'user_id,problem_id,filename' },
-        );
+        // PostgrestBuilder is lazy: the HTTP request only fires when
+        // .then() (or await) is invoked. A bare `void sb.from(...).upsert(...)`
+        // constructs the builder and discards it without triggering the
+        // fetch — so the upsert silently doesn't happen. Always terminate
+        // the chain with .then so the request actually goes out, and
+        // surface any { error } so a misconfigured RLS / expired session
+        // leaves a console breadcrumb instead of looking like a successful
+        // local save.
+        sb.from('user_code')
+          .upsert(
+            {
+              user_id: getUserId(),
+              problem_id: problemId,
+              filename,
+              content,
+            },
+            { onConflict: 'user_id,problem_id,filename' },
+          )
+          .then(({ error }) => {
+            if (error) console.warn('[supabase] user_code upsert failed:', error);
+          });
       });
     }, SUPABASE_SAVE_DEBOUNCE_MS),
   );
@@ -120,7 +135,9 @@ export function clearCode(problemId: string, filenames: string[]): void {
         .delete()
         .eq('user_id', getUserId())
         .eq('problem_id', problemId)
-        .then(() => {});
+        .then(({ error }) => {
+          if (error) console.warn('[supabase] user_code delete failed:', error);
+        });
     });
   }
 }
@@ -201,7 +218,9 @@ export function saveStatus(
           },
           { onConflict: 'user_id,problem_id' },
         )
-        .then(() => {});
+        .then(({ error }) => {
+          if (error) console.warn('[supabase] problem_status upsert failed:', error);
+        });
     });
   }
 

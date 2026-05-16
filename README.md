@@ -64,7 +64,7 @@ npm run dev -w web         # http://localhost:3000
 │   ├── _shared/            grader_harness.h (fork-per-test + sentinel emission)
 │   └── POTD0/ ... POTD64/  source files, Makefile/CMakeLists, meta.json, problem.md, tests/
 └── supabase/
-    ├── migrations/         SQL schema (user_code, problem_status, ui_state + RLS)
+    ├── migrations/         SQL schema (user_code, problem_status; ui_state reserved + RLS)
     └── README.md
 ```
 

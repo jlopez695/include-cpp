@@ -36,6 +36,12 @@ create table if not exists public.problem_status (
 -- ────────────────────────────────────────────────────────────────────────────
 -- ui_state: one row per user. Free-form jsonb for split sizes, last-active
 -- problem, theme preferences, etc.
+--
+-- NOTE: schema only. No code path reads or writes this table today —
+-- loadUiState / saveUiState in web/lib/storage.ts are localStorage-only.
+-- The table is reserved for future cross-device UI-state sync; until that
+-- ships, the RLS policy and trigger below are harmless dead weight (free
+-- to keep, since dropping and re-creating later would just churn migrations).
 -- ────────────────────────────────────────────────────────────────────────────
 create table if not exists public.ui_state (
   user_id     uuid          primary key references auth.users(id) on delete cascade,

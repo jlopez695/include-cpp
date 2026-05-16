@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { BUILD_ROOT, CCACHE_DIR, PROBLEMS_DIR } from '../common/paths.js';
 import { TOOLCHAIN } from '../common/toolchain.js';
-import { spawnLimited } from './resource-limits.js';
+import { spawnLimited, shellQuote } from './resource-limits.js';
 import { parseJUnit } from './junit.js';
 import type { StreamCallback } from './event-emitter.js';
 
@@ -104,7 +104,7 @@ export async function runCmake(
     // want /run silently invoking the Catch2 test harness because
     // `test` happened to come before `main`.
     const bin = await findRunnableBinary(buildDir, entrypoint);
-    const run = spawnLimited(bin, { cwd: buildDir, env, signal });
+    const run = spawnLimited(shellQuote(bin), { cwd: buildDir, env, signal });
     pipeRawChild(run.child, emit);
     const runResult = await run.done;
     exitCode = runResult.exitCode;
