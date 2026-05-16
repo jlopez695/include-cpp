@@ -150,11 +150,31 @@ export function saveStatus(
 
 /* ── Streak tracking ── */
 
+// Parse a localStorage value that we expect to be JSON of `string[]`.
+// Returns [] if the key is missing, the JSON is malformed, or the parsed
+// value isn't a homogeneous array of strings. Without this guard, any
+// corruption to potd:solve-dates or potd:bookmarks (manual devtools
+// edit, a half-written value, an extension stomping on storage) would
+// throw synchronously and brick the page that reads it — the streak
+// display, the bookmarks list, the sidebar — until the user manually
+// clears their localStorage. The defensive path is invisible on the
+// happy path; it only kicks in when storage is already broken.
+function readStringArray(key: string): string[] {
+  const raw = localStorage.getItem(key);
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x): x is string => typeof x === 'string');
+  } catch {
+    return [];
+  }
+}
+
 export function recordSolveDate(): void {
   if (typeof window === 'undefined') return;
   const today = new Date().toISOString().slice(0, 10);
-  const raw = localStorage.getItem('potd:solve-dates');
-  const dates: string[] = raw ? JSON.parse(raw) : [];
+  const dates = readStringArray('potd:solve-dates');
   if (!dates.includes(today)) {
     dates.push(today);
     localStorage.setItem('potd:solve-dates', JSON.stringify(dates));
@@ -174,9 +194,7 @@ function calendarDaysApart(a: string, b: string): number {
 
 export function getStreak(): number {
   if (typeof window === 'undefined') return 0;
-  const raw = localStorage.getItem('potd:solve-dates');
-  if (!raw) return 0;
-  const dates: string[] = JSON.parse(raw);
+  const dates = readStringArray('potd:solve-dates');
   if (dates.length === 0) return 0;
 
   const sorted = [...dates].sort().reverse();
@@ -202,7 +220,21 @@ export interface BestResult {
 export function loadBestResult(problemId: string): BestResult | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(`potd:best:${problemId}`);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      parsed !== null &&
+      typeof parsed === 'object' &&
+      typeof (parsed as BestResult).passed === 'number' &&
+      typeof (parsed as BestResult).total === 'number'
+    ) {
+      return parsed as BestResult;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -223,8 +255,7 @@ const BOOKMARKS_KEY = 'potd:bookmarks';
 
 export function getBookmarkedIds(): string[] {
   if (typeof window === 'undefined') return [];
-  const raw = localStorage.getItem(BOOKMARKS_KEY);
-  return raw ? JSON.parse(raw) : [];
+  return readStringArray(BOOKMARKS_KEY);
 }
 
 export function isBookmarked(problemId: string): boolean {
