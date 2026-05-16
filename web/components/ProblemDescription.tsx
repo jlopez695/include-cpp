@@ -42,14 +42,31 @@ export function ProblemDescription({ html }: ProblemDescriptionProps) {
         btn.setAttribute('aria-label', 'Copy code');
 
         const handler = () => {
+          // Prefer the inner <code>'s textContent: pre.textContent walks ALL
+          // descendants, including the copy button we just appended, so
+          // falling back to pre.textContent on a code block without an
+          // inner <code> would copy "...code...Copy" with the button label
+          // tacked on the end. rehype-stringify always wraps fenced blocks
+          // in <code>, but a future markdown plugin could emit a bare <pre>
+          // and this fallback would be wrong; leaving the comment as the
+          // breadcrumb for that future bug.
           const code = pre.querySelector('code');
           const text = (code?.textContent ?? pre.textContent ?? '').replace(/\n$/, '');
-          navigator.clipboard.writeText(text).then(() => {
-            btn.textContent = 'Copied!';
-            window.setTimeout(() => {
-              btn.textContent = 'Copy';
-            }, 1500);
-          });
+          // Same guards as OutputPanel.handleCopy: navigator.clipboard is
+          // undefined on insecure origins and writeText can reject (permission
+          // denied, document not focused). The bare .then(...) below would
+          // surface those as unhandled promise rejections in the console
+          // every time the user clicked Copy on a misbehaving browser.
+          if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+          navigator.clipboard.writeText(text).then(
+            () => {
+              btn.textContent = 'Copied!';
+              window.setTimeout(() => {
+                btn.textContent = 'Copy';
+              }, 1500);
+            },
+            () => { /* clipboard write rejected — leave the button label alone */ },
+          );
         };
         btn.addEventListener('click', handler);
         pre.appendChild(btn);

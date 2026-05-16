@@ -45,10 +45,22 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests, 
 
   const handleCopy = () => {
     const text = formatOutputText(lines, testResults);
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    // navigator.clipboard.writeText can reject (permission denied, document
+    // not focused, blocked by some Safari versions) and is undefined entirely
+    // on http origins / file://. The previous code's bare `.then(...)` had
+    // no catch, so any failure surfaced as an unhandled promise rejection
+    // in the console without giving the user any indication. Wrap it: on
+    // success show "Copied", on failure swallow silently — there's nothing
+    // useful to retry from the panel chrome and the user can still select +
+    // Cmd-C the output manually.
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    navigator.clipboard.writeText(text).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => { /* clipboard write rejected — fall through quietly */ },
+    );
   };
 
   const hasTests = testResults.length > 0;
