@@ -62,6 +62,13 @@ export class ExecutionController {
     req: FastifyRequest,
     res: FastifyReply,
   ): Promise<void> {
+    // Validate the submitted filenames BEFORE acquiring an in-flight slot
+    // or flushing SSE headers, so a bad-shape request comes back as a
+    // proper 400 (or 404 for an unknown id) instead of a streamed error
+    // event. This also means we don't burn an in-flight slot on a request
+    // that was never going to run.
+    this.execution.validateRunRequest(id, body.files);
+
     const userId = body.userId ?? 'anonymous';
     const key = `${userId}:${id}:${mode}`;
 
