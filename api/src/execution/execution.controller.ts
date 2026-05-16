@@ -83,7 +83,11 @@ export class ExecutionController {
     }
 
     const controller = new AbortController();
-    req.raw.on('close', () => controller.abort());
+    let clientGone = false;
+    req.raw.on('close', () => {
+      clientGone = true;
+      controller.abort();
+    });
 
     const origin = req.headers.origin;
     const raw = res.raw;
@@ -98,8 +102,28 @@ export class ExecutionController {
     }
     raw.flushHeaders?.();
 
+    // When the client disconnects mid-stream we abort the spawned child,
+    // but the child's stdout/stderr can still flush buffered chunks for
+    // a few ticks after SIGKILL — and the makefile-runner's on-end
+    // handler ALSO emits any unparsed tail. Each of those reaches this
+    // `write` callback, and a raw.write() on a destroyed ServerResponse
+    // throws ERR_STREAM_WRITE_AFTER_END. Without this guard the throw
+    // escapes the data-event listener, lands as an uncaughtException,
+    // and on the wrong day takes down the Node process. Once we know
+    // the client is gone there is nothing useful to send anyway — drop
+    // the event instead of forcing the spawn output through a closed
+    // socket.
     const write = (event: StreamEvent) => {
-      raw.write(`event: ${event.kind}\ndata: ${JSON.stringify(event)}\n\n`);
+      if (clientGone) return;
+      try {
+        raw.write(`event: ${event.kind}\ndata: ${JSON.stringify(event)}\n\n`);
+      } catch {
+        // The socket was destroyed between the clientGone check and the
+        // write — the 'close' event fires asynchronously and a write
+        // already in flight can lose the race. Flag clientGone so any
+        // queued chunks behind this one short-circuit without retrying.
+        clientGone = true;
+      }
     };
 
     try {
@@ -109,7 +133,9 @@ export class ExecutionController {
       write({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {
       this.inFlight.release(key);
-      raw.end();
+      if (!clientGone) {
+        try { raw.end(); } catch { /* already-destroyed socket is fine */ }
+      }
     }
   }
 }
