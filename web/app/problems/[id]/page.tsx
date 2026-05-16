@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
-import { fetchProblem, fetchProblems, fetchHealth } from '@/lib/api';
+import { fetchProblem, fetchProblems, fetchHealth, ApiError } from '@/lib/api';
 import { renderMarkdown } from '@/lib/markdown-server';
 import { findHeavyLazyChunks } from '@/lib/preload-hints';
 import { ProblemWorkspace } from './ProblemWorkspace';
@@ -26,8 +26,14 @@ export default async function ProblemPage({ params }: Props) {
   let problem;
   try {
     problem = await fetchProblem(id);
-  } catch {
-    notFound();
+  } catch (err) {
+    // Only treat a real backend 404 as "not found". Any other failure
+    // (5xx, network error, backend down) should propagate to error.tsx
+    // so users see the actual problem instead of a misleading 404 page.
+    if (err instanceof ApiError && err.status === 404) {
+      notFound();
+    }
+    throw err;
   }
 
   const [problems, health, markdownHtml, preloadChunks] = await Promise.all([
