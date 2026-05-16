@@ -4,22 +4,19 @@ import { ServiceWorkerRegistrar } from '@/components/ServiceWorkerRegistrar';
 import { SupabasePrewarmer } from '@/components/SupabasePrewarmer';
 import './globals.css';
 
-// Ship only the weights the codebase actually uses. Audit:
-//   font-medium (500): 7 sites · font-semibold (600): 12 · font-bold (700): 14
-//   font-extrabold (800): 4 · default (400): everywhere
-// Without an explicit weight list next/font generates a file per weight Google
-// ships (9 for Inter, 8 for JetBrains_Mono), most of them dead weight.
+// 400 / 500 / 600. 600 is reserved for display moments (TopBar problem title,
+// ProgressDashboard hero stat, prose h1/h2) — body/UI stays 400/500.
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
-  weight: ['400', '500', '600', '700', '800'],
+  weight: ['400', '500', '600'],
 });
 const jetbrains = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500'],
 });
 
 export const metadata: Metadata = {

@@ -10,21 +10,18 @@ import { ProblemDescription } from '@/components/ProblemDescription';
 import { EditorPanel } from '@/components/EditorPanel';
 import { StatusBar } from '@/components/StatusBar';
 import { HealthBanner } from '@/components/HealthBanner';
-import { langForFile } from '@/lib/lang';
 
-const Confetti = lazy(() => import('@/components/Confetti').then(m => ({ default: m.Confetti })));
 const KeyboardShortcuts = lazy(() => import('@/components/KeyboardShortcuts').then(m => ({ default: m.KeyboardShortcuts })));
 
 interface Props {
   problem: ProblemDetail;
   prevId: string | null;
   nextId: string | null;
-  problemIds: string[];
   healthWarnings: string[];
   markdownHtml: string;
 }
 
-export function ProblemWorkspace({ problem, prevId, nextId, problemIds, healthWarnings, markdownHtml }: Props) {
+export function ProblemWorkspace({ problem, prevId, nextId, healthWarnings, markdownHtml }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const editor = useProblemEditor(problem);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -50,7 +47,6 @@ export function ProblemWorkspace({ problem, prevId, nextId, problemIds, healthWa
     [20, 70],
   );
 
-  // Global Cmd+? to open shortcuts overlay
   const toggleShortcuts = () => setShowShortcuts(v => !v);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -65,53 +61,39 @@ export function ProblemWorkspace({ problem, prevId, nextId, problemIds, healthWa
 
   return (
     <>
+      <a href="#editor-panel" className="skip-link">Skip to editor</a>
       <HealthBanner warnings={healthWarnings} />
-      <TopBar problem={problem} prevId={prevId} nextId={nextId} status={editor.status} problemIds={problemIds} />
+      <TopBar problem={problem} prevId={prevId} nextId={nextId} status={editor.status} />
 
-      {/* Body: description | resizer | editor */}
       <div className="flex-1 flex overflow-hidden min-h-0" ref={bodyRef}>
-        {/* Description panel */}
         <section
           className="flex flex-col border-r border-border-soft overflow-hidden bg-bg-1 min-w-[240px]"
           style={{ width: `${horizontal.size}%` }}
         >
-          <div className="px-[18px] py-[9px] text-[10px] font-bold tracking-[1.4px] uppercase border-b border-border-soft bg-bg-1 shrink-0 flex items-center gap-1.5">
-            <span className="text-text-mute">Problems</span>
-            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className="text-text-mute/50">
-              <path d="M3 2L5 4L3 6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-            </svg>
-            <span className="text-accent">{problem.id}</span>
-          </div>
           <ProblemDescription html={markdownHtml} />
         </section>
 
-        {/* Horizontal resizer */}
         <div
           onMouseDown={horizontal.onMouseDown}
-          className="resizer-grip-h w-1.5 cursor-col-resize shrink-0 relative z-10 hover:bg-accent/20 active:bg-accent/30 transition-colors"
+          className="w-1.5 cursor-col-resize shrink-0 relative z-10 hover:bg-accent/30 active:bg-accent/40 transition-colors"
           role="separator"
           aria-orientation="vertical"
           aria-label="Resize description panel"
           tabIndex={0}
         />
 
-        {/* Editor panel */}
         <EditorPanel editor={editor} vimMode={vimMode} onVimToggle={toggleVim} />
       </div>
 
       <StatusBar
         activeFile={editor.activeFile}
-        language={langForFile(editor.activeFile)}
         isEditable={editor.isActiveEditable}
         cursorLine={editor.cursorLine}
         cursorCol={editor.cursorCol}
-        compiling={editor.compiling}
-        vimMode={vimMode}
         onShowShortcuts={toggleShortcuts}
       />
 
       <Suspense fallback={null}>
-        {editor.showConfetti && <Confetti onDone={editor.dismissConfetti} />}
         <KeyboardShortcuts open={showShortcuts} onClose={() => setShowShortcuts(false)} />
       </Suspense>
     </>

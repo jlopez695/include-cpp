@@ -197,11 +197,6 @@ describe('Performance configuration', () => {
       );
     });
 
-    it('uses React.lazy for Confetti', () => {
-      assert.ok(workspaceSource.includes("lazy(() => import('@/components/Confetti')"),
-        'Confetti should be lazy-loaded');
-    });
-
     it('uses React.lazy for KeyboardShortcuts', () => {
       assert.ok(workspaceSource.includes("lazy(() => import('@/components/KeyboardShortcuts')"),
         'KeyboardShortcuts should be lazy-loaded');

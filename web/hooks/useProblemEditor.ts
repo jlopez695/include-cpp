@@ -29,7 +29,6 @@ export interface ProblemEditorState {
   running: boolean;
   compiling: boolean;
   sseError: string | null;
-  showConfetti: boolean;
   modifiedFiles: Set<string>;
 
   /* Status */
@@ -50,7 +49,6 @@ export interface ProblemEditorState {
   setCursor: (line: number, col: number) => void;
   onContentChange: (filename: string, content: string) => void;
   loadIntoModels: () => void;
-  dismissConfetti: () => void;
   clearOutput: () => void;
 }
 
@@ -65,7 +63,6 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
   const [summary, setSummary] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [compiling, setCompiling] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
   const [status, setStatusState] = useState<Status>('unsolved');
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorCol, setCursorCol] = useState(1);
@@ -172,7 +169,6 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     setCompiling(true);
     setOutputLines([]);
     setTestResults([]);
-    setShowConfetti(false);
     setOutputLabel(mode === 'run' ? 'Run Output' : 'Test Results');
     setSummary(null);
     stderrBufferRef.current = '';
@@ -227,7 +223,6 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
           saveStatus(problem.id, newStatus, passed, total);
           saveBestResult(problem.id, passed, total);
           if (total > 0 && passed === total) {
-            setShowConfetti(true);
             recordSolveDate();
           }
         }
@@ -260,8 +255,6 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     setCursorCol(col);
   };
 
-  const dismissConfetti = () => setShowConfetti(false);
-
   const clearOutput = () => {
     setOutputLines([]);
     setTestResults([]);
@@ -281,7 +274,6 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     summary,
     running,
     compiling,
-    showConfetti,
     modifiedFiles,
     sseError: sse.error,
     status,
@@ -295,7 +287,6 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     setCursor,
     onContentChange,
     loadIntoModels,
-    dismissConfetti,
     clearOutput,
   };
 }

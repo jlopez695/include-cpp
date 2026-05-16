@@ -37,15 +37,10 @@ export default async function ProblemPage({ params }: Props) {
     findHeavyLazyChunks(),
   ]);
 
-  // Compute prev/next IDs server-side to avoid serializing full list to client
   const idx = problems.findIndex(p => p.id === id);
   const prevId = idx > 0 ? problems[idx - 1].id : null;
   const nextId = idx < problems.length - 1 ? problems[idx + 1].id : null;
-  // Just the IDs (no titles) for the TopBar's progress pill — a few hundred
-  // bytes total even at 60+ problems.
-  const problemIds = problems.map(p => p.id);
 
-  // Next.js 16: run work after the response is sent to the client
   after(() => {
     console.log(`[page] Problem viewed: ${id} (${problem.title})`);
   });
@@ -56,15 +51,12 @@ export default async function ProblemPage({ params }: Props) {
         <link key={href} rel="modulepreload" href={href} as="script" />
       ))}
       {/* Warm the HTTP cache before useHealthCheck (in StatusBar) fires its
-          first /api/health request post-hydration. The server-rendered
-          healthWarnings already gave us the boot-time snapshot; this is for
-          the client-side poller that takes over after mount. */}
+          first /api/health request post-hydration. */}
       <link rel="preload" as="fetch" href="/api/health" crossOrigin="anonymous" />
       <ProblemWorkspace
         problem={problem}
         prevId={prevId}
         nextId={nextId}
-        problemIds={problemIds}
         healthWarnings={health.warnings}
         markdownHtml={markdownHtml}
       />

@@ -13,18 +13,29 @@
   --color-text-dim: #888892;
   --color-text-mute: #5a5a66;
   --color-text-bright: #ffffff;
+
+  /* Chrome accents. Vibrancy bumped for good + warn — the old olive/muddy
+     tones disappeared into the bg; these versions actually pop where used.
+     accent stays Tokyo-Night blue. */
   --color-accent: #7aa2f7;
   --color-accent-dim: #4d6ab7;
-  --color-good: #9ece6a;
-  --color-pass: #73daca;
+  --color-good: #4ade80;
   --color-fail: #f7768e;
-  --color-warn: #e0af68;
-  --color-info: #7dcfff;
-  --color-purple: #bb9af7;
-  --color-orange: #ff9e64;
+  --color-warn: #fbbf24;
 
   --font-mono: var(--font-mono, 'JetBrains Mono'), 'Fira Code', 'Menlo', monospace;
   --font-sans: var(--font-sans, 'Inter'), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Five-step type scale. The previous three (11/13/15) was too restrictive —
+     no display moment meant no focal point. Now there's a hero size (xl) for
+     stats and a headline size (lg) for the TopBar problem title; everything
+     else stays the same. Anything outside this set is a bug. */
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   15px;
+  --text-lg:   20px;
+  --text-xl:   28px;
 }
 
 html, body, #__next {
@@ -35,7 +46,7 @@ body {
   background: var(--color-bg-0);
   color: var(--color-text-base);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--text-base);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -51,17 +62,13 @@ html.light {
   --color-border-strong: #c8c8d4;
   --color-text-base: #24292f;
   --color-text-dim: #57606a;
-  --color-text-mute: #8b949e;
+  --color-text-mute: #6b7280;
   --color-text-bright: #1b1f24;
   --color-accent: #2563eb;
   --color-accent-dim: #6b8cdb;
   --color-good: #16a34a;
-  --color-pass: #059669;
   --color-fail: #dc2626;
-  --color-warn: #ca8a04;
-  --color-info: #0284c7;
-  --color-purple: #7c3aed;
-  --color-orange: #ea580c;
+  --color-warn: #d97706;
 }
 
 ::selection {
@@ -69,73 +76,116 @@ html.light {
   color: var(--color-text-bright);
 }
 
-/* ── Focus rings ── */
+/* ── Focus ring ── */
 :focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: -1px;
-  border-radius: 4px;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
-/* ── Markdown prose ── */
+/* ── Elevation (Kennedy's Rule 1 — light comes from the sky) ──
+   Three reusable tiers. The shadows are physical metaphor, not decoration:
+   surfaces tilted toward the sun get a brighter top edge, raised surfaces
+   cast a 1px shadow below themselves, and pressed surfaces invert the cue.
+   In light mode the inner highlight becomes a subtle dark line instead —
+   same physics, inverted base brightness. */
+.elevation-1 {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+html.light .elevation-1 {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.elevation-button {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.elevation-button:active {
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.2),
+    0 1px 0 rgba(0, 0, 0, 0.15);
+  transform: translateY(0.5px);
+}
+html.light .elevation-button {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.elevation-modal {
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+html.light .elevation-modal {
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Markdown prose ──
+   Plain typographic hierarchy. h2 used to be uppercase + accent-colored + 12px
+   tracked-out — an eyebrow tag, not a heading. h2 is now a real heading. */
 .prose-potd {
   line-height: 1.75;
-  font-size: 13.5px;
+  font-size: var(--text-base);
 }
 .prose-potd h1 {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-text-bright);
-  margin-bottom: 18px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--color-border-soft);
-  letter-spacing: -0.2px;
-}
-.prose-potd h2 {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  color: var(--color-accent);
-  margin: 26px 0 10px;
-}
-.prose-potd h3 {
-  font-size: 14.5px;
+  font-size: 24px;
   font-weight: 600;
   color: var(--color-text-bright);
-  margin: 20px 0 8px;
+  margin: 0 0 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border-soft);
+  letter-spacing: -0.02em;
 }
-.prose-potd p { margin-bottom: 12px; }
-.prose-potd ul, .prose-potd ol { padding-left: 22px; margin-bottom: 14px; }
+.prose-potd h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-bright);
+  margin: 28px 0 10px;
+  letter-spacing: -0.01em;
+}
+.prose-potd h3 {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-bright);
+  margin: 20px 0 6px;
+}
+.prose-potd p { margin: 0 0 14px; }
+.prose-potd ul, .prose-potd ol { padding-left: 22px; margin: 0 0 14px; }
 .prose-potd li { margin-bottom: 6px; }
 .prose-potd li::marker { color: var(--color-text-mute); }
-.prose-potd strong { color: var(--color-text-bright); font-weight: 600; }
-.prose-potd em { color: var(--color-purple); font-style: normal; }
+.prose-potd strong { color: var(--color-text-bright); font-weight: 500; }
+.prose-potd em { font-style: italic; color: inherit; }
 .prose-potd a {
-  color: var(--color-info);
-  text-decoration: none;
-  border-bottom: 1px dashed var(--color-accent-dim);
-  transition: color 0.15s, border-color 0.15s;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--color-accent-dim);
+  transition: text-decoration-color 0.15s;
 }
-.prose-potd a:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.prose-potd a:hover { text-decoration-color: var(--color-accent); }
 .prose-potd code {
-  background: var(--color-bg-3);
-  color: var(--color-orange);
-  padding: 2px 7px;
-  border-radius: 4px;
+  background: var(--color-bg-2);
+  color: var(--color-text-bright);
+  padding: 1px 5px;
+  border-radius: 3px;
   font-family: var(--font-mono);
   font-size: 12px;
-  border: 1px solid var(--color-border-soft);
 }
 .prose-potd pre {
   position: relative;
   background: var(--color-bg-2);
   border: 1px solid var(--color-border-soft);
-  border-radius: 8px;
-  padding: 14px 16px;
+  border-radius: 4px;
+  padding: 12px 14px;
   overflow-x: auto;
-  margin: 16px 0;
+  margin: 14px 0;
   font-size: 12.5px;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 .prose-potd pre code {
   background: none;
@@ -145,12 +195,10 @@ html.light {
   font-size: inherit;
 }
 .prose-potd blockquote {
-  border-left: 3px solid var(--color-accent-dim);
-  padding: 6px 16px;
+  border-left: 2px solid var(--color-border-strong);
+  padding: 0 14px;
   margin: 14px 0;
   color: var(--color-text-dim);
-  background: rgba(122, 162, 247, 0.04);
-  border-radius: 0 6px 6px 0;
 }
 .prose-potd table {
   width: 100%;
@@ -160,78 +208,46 @@ html.light {
 }
 .prose-potd th, .prose-potd td {
   text-align: left;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--color-border-soft);
 }
 .prose-potd th {
-  background: var(--color-bg-2);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-text-bright);
 }
 .prose-potd hr {
   border: none;
   border-top: 1px solid var(--color-border-soft);
-  margin: 24px 0;
+  margin: 22px 0;
 }
 
 /* ── kbd tags ── */
 kbd {
   font-family: var(--font-mono);
   font-size: 10px;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0,0,0,0.25);
   padding: 1px 5px;
   border-radius: 3px;
   margin-left: 4px;
   opacity: 0.7;
-  font-weight: 500;
-  border: 1px solid rgba(255,255,255,0.06);
+  font-weight: 400;
+  border: 1px solid rgba(255,255,255,0.05);
 }
 
-/* ── Animations ── */
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-.animate-pulse-soft { animation: pulse-soft 1.2s infinite ease-in-out; }
-
+/* ── Animations ──
+   Editor-native chrome stays still. Only three animations remain:
+   fade-in (modal entry), spin (loading state), and test-pass-pulse
+   (information — a passing test row). Everything else was decoration. */
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-.animate-fade-in { animation: fade-in 0.2s ease-out; }
-
-@keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-.animate-slide-in { animation: slide-in-left 0.15s ease-out; }
+.animate-fade-in { animation: fade-in 0.15s ease-out; }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 .animate-spin { animation: spin 0.8s linear infinite; }
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-.animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(122,162,247,0.08) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
-}
-
-@keyframes pop-in {
-  0% { transform: scale(0.9); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-.animate-pop-in { animation: pop-in 0.2s ease-out; }
-
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-slide-up { animation: slide-up 0.25s ease-out; }
 
 /* ── Scrollbars ── */
 *::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -248,82 +264,38 @@ kbd {
 }
 *::-webkit-scrollbar-corner { background: transparent; }
 
-/* ── Resizer grip dots ── */
-.resizer-grip-h::after {
-  content: '···';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(90deg);
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: var(--color-text-mute);
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
-}
-.resizer-grip-h:hover::after { opacity: 1; }
-
-.resizer-grip-v::after {
-  content: '···';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: var(--color-text-mute);
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
-}
-.resizer-grip-v:hover::after { opacity: 1; }
-
 /* ── Copy button on code blocks ── */
 .prose-potd pre .copy-btn {
   position: absolute;
   top: 6px;
-  right: 6px;
-  background: var(--color-bg-3);
-  border: 1px solid var(--color-border-soft);
-  border-radius: 5px;
-  padding: 3px 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
   font-size: 10px;
-  color: var(--color-text-dim);
+  color: var(--color-text-mute);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  transition: opacity 0.15s, color 0.15s;
 }
 .prose-potd pre:hover .copy-btn { opacity: 1; }
-.prose-potd pre .copy-btn:hover {
-  background: var(--color-bg-4);
-  color: var(--color-text-bright);
-}
+.prose-potd pre .copy-btn:hover { color: var(--color-text-bright); }
 
-/* ── Peak-End Rule: per-test pass pulse ──
-   Brief green flash when a passing test result mounts. Failures stay
-   plain — only passes get a celebration. Uses the existing --color-good
-   token so the flash matches the app theme; the keyframe fades to
-   transparent so it doesn't compete with the steady-state row colors. */
+/* ── Per-test pass pulse ──
+   Brief green wash when a passing row mounts. Information, not celebration —
+   it tells you which row just resolved. Failures stay plain. */
 @keyframes test-pass-pulse {
-  0%   { background-color: rgba(158, 206, 106, 0.22); }
-  60%  { background-color: rgba(158, 206, 106, 0.10); }
+  0%   { background-color: rgba(74, 222, 128, 0.20); }
+  60%  { background-color: rgba(74, 222, 128, 0.10); }
   100% { background-color: transparent; }
 }
 .test-pass-pulse {
   animation: test-pass-pulse 800ms ease-out;
 }
 
-/* ── Fitts's Law: hit-area extension for small icon buttons ──
-   Adds an invisible 4px-thick clickable margin around the button without
-   altering its visual size. A 28×28 button becomes a 36×36 click target;
-   a 20×20 button becomes a 28×28 target (still small — use .hit-area-lg
-   on those, which extends 8px and yields ≥36×36 effective). Apply to any
-   small icon button (action-bar toggles, prev/next arrows, modal closes,
-   sidebar collapse/bookmark/random, status-bar theme toggle, etc).
-   Pseudo-element is inert visually but inherits clicks because it lives
-   on the same element. ::before is used so .hover/active rings (which
-   we apply via background/ring on the host) are unaffected. */
+/* ── Hit-area extension (Fitts) ──
+   Invisible click margin so small icon buttons clear the 32px target the rest
+   of the chrome implies. Visual size unchanged. */
 .hit-area { position: relative; }
 .hit-area::before {
   content: '';
@@ -335,6 +307,27 @@ kbd {
   content: '';
   position: absolute;
   inset: -8px;
+}
+
+/* ── Skip link: visually hidden until focused ── */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -40px;
+  z-index: 100;
+  padding: 6px 12px;
+  background: var(--color-accent);
+  color: var(--color-bg-0);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.skip-link:focus-visible {
+  top: 8px;
+  outline: 2px solid var(--color-text-bright);
+  outline-offset: 2px;
 }
 
 /* ── Reduced motion ── */

@@ -25,6 +25,7 @@ import { useResizable } from '@/hooks/useResizable';
 import { loadUiState, saveUiState } from '@/lib/storage';
 import { clampFontSize } from '@/lib/editor-settings';
 import { OutputPanel } from './OutputPanel';
+import { EditorOverflowMenu } from './EditorOverflowMenu';
 
 interface EditorPanelProps {
   editor: ProblemEditorState;
@@ -157,8 +158,11 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
 
   return (
     <section
+      id="editor-panel"
       ref={panelRef}
+      tabIndex={-1}
       className="flex-1 flex flex-col overflow-hidden min-w-0 bg-bg-0"
+      aria-label="Code editor"
     >
       {/* File tabs */}
       <div
@@ -176,9 +180,9 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
               role="tab"
               aria-selected={isActive}
               aria-label={`${name}${!editable ? ' (read only)' : ''}${isModified ? ' (modified)' : ''}`}
-              className={`group relative flex items-center gap-1.5 px-3.5 h-full border-r border-border-soft font-mono text-[12px] whitespace-nowrap transition-all duration-150 ${
+              className={`group relative flex items-center gap-1.5 px-4 h-full border-r border-border-soft font-mono text-[13px] whitespace-nowrap transition-all duration-150 ${
                 isActive
-                  ? 'bg-bg-0 text-text-bright'
+                  ? 'bg-bg-0 text-text-bright elevation-1'
                   : 'text-text-dim hover:text-text-base hover:bg-white/[0.02]'
               }`}
             >
@@ -190,10 +194,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
               <FileIcon editable={editable} />
               <span>{name}</span>
               {isModified && (
-                <span className="w-1.5 h-1.5 rounded-full bg-accent/70 shrink-0" title="Modified" />
-              )}
-              {!editable && isActive && (
-                <span className="text-[9px] text-text-mute/60 uppercase tracking-wider ml-1">ro</span>
+                <span className="w-1 h-1 rounded-full bg-text-mute shrink-0" title="Modified" />
               )}
             </button>
           );
@@ -226,15 +227,6 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
               guides: { bracketPairs: true },
             }}
           />
-          {!editor.isActiveEditable && (
-            <div className="absolute top-3 right-4 bg-bg-3/80 backdrop-blur-sm text-text-dim text-[10px] px-3 py-1 rounded-full pointer-events-none z-10 tracking-wider uppercase border border-border-soft/50 flex items-center gap-1.5">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                <rect x="3" y="4" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1" />
-                <path d="M4.5 4V3C4.5 2.17 5.17 1.5 6 1.5C6.83 1.5 7.5 2.17 7.5 3V4" stroke="currentColor" strokeWidth="1" />
-              </svg>
-              Read Only
-            </div>
-          )}
         </div>
 
         {/* Diff pane — shows starter code for active file */}
@@ -326,42 +318,32 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
         />
       )}
 
-      {/* Action bar */}
-      <div className="h-12 flex items-center gap-2 px-4 bg-bg-1 border-t border-border-soft shrink-0">
+      {/* Action bar \u2014 Run is the primary action with full elevation
+          (light from sky: top inner highlight + bottom shadow, inverts on
+          press). Test / Stop are secondary outlined with elevation-1. */}
+      <div className="h-12 flex items-center gap-3 px-3 bg-bg-1 border-t border-border-soft shrink-0">
         {!editor.running ? (
           <>
             <button
               onClick={() => editor.run('run')}
-              className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-lg text-[12px] font-semibold bg-accent text-bg-0 hover:brightness-110 active:translate-y-px transition-all shadow-sm shadow-accent/20"
+              className="px-4 py-1.5 rounded-md text-[13px] font-medium bg-accent text-bg-0 hover:brightness-110 elevation-button"
               aria-label="Run program (Cmd+Enter)"
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-                <polygon points="1,0 10,5 1,10" />
-              </svg>
               Run
-              <kbd className="border-none bg-black/20 shadow-none opacity-60">{'\u2318\u21B5'}</kbd>
             </button>
             <button
               onClick={() => editor.run('test')}
-              className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-lg text-[12px] font-semibold bg-good text-bg-0 hover:brightness-110 active:translate-y-px transition-all shadow-sm shadow-good/20"
+              className="px-3 py-1.5 rounded-md text-[13px] font-medium text-good border border-good/40 hover:bg-good/10 elevation-1 transition-colors"
               aria-label="Run tests (Cmd+Shift+Enter)"
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 5.5L4 7.5L8 3" />
-              </svg>
               Test
-              <kbd className="border-none bg-black/20 shadow-none opacity-60">{'\u2318\u21E7\u21B5'}</kbd>
             </button>
             <button
               onClick={editor.reset}
               title="Restore starter code"
-              className="inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-[12px] font-medium text-text-dim border border-border-soft hover:bg-bg-2 hover:text-text-base hover:border-border-strong active:translate-y-px transition-all"
+              className="px-2 py-1 text-[13px] text-text-mute hover:text-text-base transition-colors"
               aria-label="Reset to starter code"
             >
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-                <path d="M2.5 6.5A4 4 0 1 1 3.5 9.5" />
-                <path d="M2 3.5V6.5H5" />
-              </svg>
               Reset
             </button>
           </>
@@ -369,37 +351,22 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
           <>
             <button
               onClick={editor.abort}
-              className="inline-flex items-center gap-2 px-4 py-[7px] rounded-lg text-[12px] font-semibold bg-fail/15 text-fail border border-fail/25 hover:bg-fail/25 active:translate-y-px transition-all"
+              className="px-3 py-1.5 rounded-md text-[13px] font-medium text-fail border border-fail/40 hover:bg-fail/10 elevation-1 transition-colors"
               aria-label="Stop execution"
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-                <rect x="1" y="1" width="8" height="8" rx="1" />
-              </svg>
               Stop
             </button>
-            <div className="flex items-center gap-2 ml-2">
+            <div className="flex items-center gap-2">
               <Spinner />
-              <span className="text-[12px] text-accent font-medium">
-                {editor.compiling ? 'Compiling...' : 'Running...'}
+              <span className="text-[13px] text-text-dim">
+                {editor.compiling ? 'Compiling\u2026' : 'Running\u2026'}
               </span>
             </div>
           </>
         )}
 
         <div className="flex-1" />
-        {/* Divider: primary actions | editor preferences */}
-        <div className="h-5 w-px bg-border-soft/60 self-center mx-1.5" aria-hidden="true" />
-        <button
-          onClick={onVimToggle}
-          title={vimMode ? 'Disable Vim mode' : 'Enable Vim mode'}
-          className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
-            vimMode ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
-          }`}
-          aria-label="Toggle Vim mode"
-        >
-          VIM
-        </button>
-        <div className="flex items-center gap-0.5 mr-1">
+        <div className="flex items-center gap-0.5">
           <button
             onClick={() => {
               const next = clampFontSize(fontSize - 1);
@@ -409,12 +376,12 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             }}
             disabled={fontSize <= 10}
             title="Decrease font size"
-            className="hit-area-lg w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold text-text-mute hover:text-text-dim hover:bg-bg-3 disabled:opacity-30 disabled:cursor-default transition-colors"
+            className="hit-area-lg w-6 h-6 flex items-center justify-center text-[11px] text-text-mute hover:text-text-base disabled:opacity-30 disabled:cursor-default transition-colors"
             aria-label="Decrease font size"
           >
-            A<span className="text-[9px]">-</span>
+            A<span className="text-[9px]">\u2212</span>
           </button>
-          <span className="text-[10px] text-text-mute tabular-nums w-5 text-center">{fontSize}</span>
+          <span className="text-[11px] text-text-mute tabular-nums w-5 text-center">{fontSize}</span>
           <button
             onClick={() => {
               const next = clampFontSize(fontSize + 1);
@@ -424,60 +391,12 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             }}
             disabled={fontSize >= 24}
             title="Increase font size"
-            className="hit-area-lg w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold text-text-mute hover:text-text-dim hover:bg-bg-3 disabled:opacity-30 disabled:cursor-default transition-colors"
+            className="hit-area-lg w-6 h-6 flex items-center justify-center text-[11px] text-text-mute hover:text-text-base disabled:opacity-30 disabled:cursor-default transition-colors"
             aria-label="Increase font size"
           >
             A<span className="text-[9px]">+</span>
           </button>
         </div>
-        <button
-          onClick={() => {
-            const next = tabSize === 2 ? 4 : 2;
-            setTabSize(next);
-            saveUiState('tabSize', next);
-            editor.models.editorRef.current?.updateOptions({ tabSize: next });
-          }}
-          title={`Tab size: ${tabSize} spaces (click to toggle)`}
-          className="px-1.5 py-0.5 rounded text-[10px] font-medium text-text-mute hover:text-text-dim hover:bg-bg-3 transition-colors tabular-nums"
-          aria-label="Toggle tab size"
-        >
-          {tabSize}sp
-        </button>
-        {/* Divider: editor preferences | view toggles */}
-        <div className="h-5 w-px bg-border-soft/60 self-center mx-1.5" aria-hidden="true" />
-        <button
-          onClick={() => {
-            setWordWrap(v => !v);
-            editor.models.editorRef.current?.updateOptions({ wordWrap: !wordWrap ? 'on' : 'off' });
-          }}
-          title={wordWrap ? 'Disable word wrap' : 'Enable word wrap'}
-          className={`hit-area w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
-            wordWrap ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
-          }`}
-          aria-label="Toggle word wrap"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M2 3H12M2 7H10C11.1 7 12 7.9 12 9C12 10.1 11.1 11 10 11H8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M9 9.5L7.5 11L9 12.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <button
-          onClick={() => {
-            setMinimap(v => !v);
-            editor.models.editorRef.current?.updateOptions({ minimap: { enabled: !minimap } });
-          }}
-          title={minimap ? 'Hide minimap' : 'Show minimap'}
-          className={`hit-area w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
-            minimap ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
-          }`}
-          aria-label="Toggle minimap"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <rect x="1" y="2" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1.2" />
-            <rect x="10" y="3" width="3" height="8" rx="0.5" fill="currentColor" opacity="0.4" />
-            <path d="M3 5H7M3 7H6M3 9H7" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
-          </svg>
-        </button>
         <button
           onClick={() => {
             setDiffMode(prev => {
@@ -486,8 +405,8 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             });
           }}
           title={diffMode ? 'Close diff view (Cmd+Shift+D)' : 'Compare with starter code (Cmd+Shift+D)'}
-          className={`hit-area w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
-            diffMode ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
+          className={`hit-area w-7 h-7 flex items-center justify-center transition-colors ${
+            diffMode ? 'text-accent' : 'text-text-mute hover:text-text-base'
           }`}
           aria-label="Toggle diff view"
         >
@@ -510,8 +429,8 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             }
           }}
           title={splitFile ? 'Close split view' : 'Open split view'}
-          className={`hit-area w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
-            splitFile ? 'text-accent bg-accent/10' : 'text-text-mute hover:text-text-dim hover:bg-bg-3'
+          className={`hit-area w-7 h-7 flex items-center justify-center transition-colors ${
+            splitFile ? 'text-accent' : 'text-text-mute hover:text-text-base'
           }`}
           aria-label="Toggle split editor"
         >
@@ -520,6 +439,41 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
             <path d="M7 2V12" stroke="currentColor" strokeWidth="1.2" />
           </svg>
         </button>
+        {/* Overflow: rarely-used editor settings (vim, word wrap, minimap, tab size).
+            Progressive Disclosure — these stay one click away rather than crowding
+            the action bar with toggles 95% of users won't touch in a session. */}
+        <EditorOverflowMenu
+          items={[
+            { label: 'Vim mode', active: vimMode, onToggle: onVimToggle },
+            {
+              label: 'Word wrap',
+              active: wordWrap,
+              onToggle: () => {
+                setWordWrap(v => !v);
+                editor.models.editorRef.current?.updateOptions({ wordWrap: !wordWrap ? 'on' : 'off' });
+              },
+            },
+            {
+              label: 'Minimap',
+              active: minimap,
+              onToggle: () => {
+                setMinimap(v => !v);
+                editor.models.editorRef.current?.updateOptions({ minimap: { enabled: !minimap } });
+              },
+            },
+            {
+              label: 'Tab size',
+              active: tabSize === 4,
+              hint: `${tabSize} sp`,
+              onToggle: () => {
+                const next = tabSize === 2 ? 4 : 2;
+                setTabSize(next);
+                saveUiState('tabSize', next);
+                editor.models.editorRef.current?.updateOptions({ tabSize: next });
+              },
+            },
+          ]}
+        />
         {editor.sseError && !editor.running && (
           <span className="text-[11px] text-fail font-medium flex items-center gap-1.5 animate-fade-in" role="alert">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -535,7 +489,7 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
       {/* Vertical resizer */}
       <div
         onMouseDown={outputResize.onMouseDown}
-        className="resizer-grip-v h-1.5 cursor-row-resize shrink-0 relative hover:bg-accent/20 active:bg-accent/30 transition-colors"
+        className="h-1.5 cursor-row-resize shrink-0 hover:bg-accent/30 active:bg-accent/40 transition-colors"
         role="separator"
         aria-orientation="horizontal"
         aria-label="Resize output panel"
