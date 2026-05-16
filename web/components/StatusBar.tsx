@@ -28,11 +28,22 @@ export function StatusBar({
   const [dark, setDark] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('potd:theme');
-    if (saved === 'light') {
-      setDark(false);
-      document.documentElement.classList.add('light');
-    }
+    // Two reasons to guard the read: (1) Safari Private Mode raises
+    // SecurityError on every localStorage access, (2) sandboxed iframes
+    // with `allow-same-origin` stripped throw the same way. Pre-fix,
+    // the throw escaped the useEffect callback and lands as a React
+    // mount-time error — every page load on a private-mode browser
+    // showed the same stack trace, even though the FOUC-fix inline
+    // script in layout.tsx (which is already try/catch-wrapped) had
+    // already handled the class correctly. Just match what we'd see
+    // if there were no saved value.
+    try {
+      const saved = localStorage.getItem('potd:theme');
+      if (saved === 'light') {
+        setDark(false);
+        document.documentElement.classList.add('light');
+      }
+    } catch { /* localStorage blocked — fall back to default dark */ }
   }, []);
 
   const toggleTheme = () => {
@@ -40,11 +51,19 @@ export function StatusBar({
     setDark(next);
     if (next) {
       document.documentElement.classList.remove('light');
-      localStorage.setItem('potd:theme', 'dark');
     } else {
       document.documentElement.classList.add('light');
-      localStorage.setItem('potd:theme', 'light');
     }
+    // The class change above is the visible effect of the toggle and
+    // must always run. The persist-to-storage step is best-effort:
+    // private modes will throw SecurityError, but the user's toggle
+    // still "works" for this session — it just won't survive a reload.
+    // Pre-fix, the throw escaped the onClick and React would log an
+    // error every time the user clicked the theme button on those
+    // browsers (still visually toggled, but with a console scar).
+    try {
+      localStorage.setItem('potd:theme', next ? 'dark' : 'light');
+    } catch { /* preference won't persist past this session */ }
   };
 
   return (
