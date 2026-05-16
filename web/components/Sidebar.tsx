@@ -4,7 +4,15 @@ import { useState, useEffect, useOptimistic, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ProblemSummary, Status } from '@/lib/types';
-import { loadStatus, getStreak, getBookmarkedIds, toggleBookmark } from '@/lib/storage';
+import {
+  loadStatus,
+  getStreak,
+  getBookmarkedIds,
+  toggleBookmark,
+  STATUS_CHANGE_EVENT,
+  STREAK_CHANGE_EVENT,
+  type StatusChangeDetail,
+} from '@/lib/storage';
 import { pickRandom } from '@/lib/random-pick';
 import { ProgressDashboard } from './ProgressDashboard';
 import { StatusDot } from './StatusDot';
@@ -32,6 +40,28 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
     setStatuses(s);
     setBookmarks(new Set(getBookmarkedIds()));
   }, [problems, statusOverrides]);
+
+  // Refresh the row whose status just changed. saveStatus dispatches the
+  // event from the same tab that solved the problem (the browser's native
+  // `storage` event only fires across tabs). Without this listener,
+  // solving the currently-active problem leaves its sidebar dot showing
+  // the old status until a full page reload.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<StatusChangeDetail>).detail;
+      if (!detail) return;
+      // Don't refresh a row whose status is being driven by the parent
+      // (statusOverrides wins over localStorage).
+      if (statusOverrides && detail.problemId in statusOverrides) return;
+      setStatuses(prev =>
+        prev[detail.problemId] === detail.status
+          ? prev
+          : { ...prev, [detail.problemId]: detail.status },
+      );
+    };
+    window.addEventListener(STATUS_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(STATUS_CHANGE_EVENT, handler);
+  }, [statusOverrides]);
 
   const [optimisticBookmarks, addOptimisticBookmark] = useOptimistic(
     bookmarks,
@@ -216,7 +246,15 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
 
 function StreakBadge() {
   const [streak, setStreak] = useState(0);
-  useEffect(() => { setStreak(getStreak()); }, []);
+  useEffect(() => {
+    setStreak(getStreak());
+    // recordSolveDate dispatches STREAK_CHANGE_EVENT when a NEW solve date
+    // lands. Re-read getStreak() so the badge ticks up the moment the user
+    // crosses midnight into a new solve day, without a page reload.
+    const handler = () => setStreak(getStreak());
+    window.addEventListener(STREAK_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(STREAK_CHANGE_EVENT, handler);
+  }, []);
   if (streak === 0) return null;
   return (
     <span className="text-text-mute tabular-nums" title={`${streak} day streak`}>

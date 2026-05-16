@@ -149,6 +149,31 @@ export function getSolvedCount(problemIds: string[]): number {
   return count;
 }
 
+// Custom event names other components subscribe to so they can refresh
+// derived UI state (Sidebar status dots, footer solved-count, streak
+// badge) without polling localStorage on a timer. The browser's native
+// `storage` event only fires for cross-tab writes, not same-tab — these
+// custom events fill that gap for the same-tab "solve current problem →
+// see sidebar update without reloading" flow.
+export const STATUS_CHANGE_EVENT = 'potd:status-change';
+export const STREAK_CHANGE_EVENT = 'potd:streak-change';
+
+export interface StatusChangeDetail {
+  problemId: string;
+  status: Status;
+}
+
+// Dispatch a CustomEvent on window if the runtime supports it. SSR
+// (typeof window === 'undefined') and minimal node:test shims that mock
+// `window = globalThis` without an EventTarget should both no-op rather
+// than throw — the localStorage write is the source of truth either way.
+function dispatchOnWindow(type: string, detail?: unknown): void {
+  if (typeof window === 'undefined') return;
+  if (typeof window.dispatchEvent !== 'function') return;
+  if (typeof CustomEvent !== 'function') return;
+  window.dispatchEvent(new CustomEvent(type, detail !== undefined ? { detail } : undefined));
+}
+
 export function saveStatus(
   problemId: string,
   status: Status,
@@ -179,6 +204,11 @@ export function saveStatus(
         .then(() => {});
     });
   }
+
+  // Notify in-tab listeners (Sidebar, TopBar) so the visible status dot
+  // and the footer's "N / total solved" count update on this solve
+  // instead of waiting for a navigation or full page reload.
+  dispatchOnWindow(STATUS_CHANGE_EVENT, { problemId, status } satisfies StatusChangeDetail);
 }
 
 /* ── Streak tracking ── */
@@ -208,9 +238,18 @@ export function recordSolveDate(): void {
   if (typeof window === 'undefined') return;
   const today = new Date().toISOString().slice(0, 10);
   const dates = readStringArray('potd:solve-dates');
+  let mutated = false;
   if (!dates.includes(today)) {
     dates.push(today);
     localStorage.setItem('potd:solve-dates', JSON.stringify(dates));
+    mutated = true;
+  }
+  // Only notify when the underlying solve-dates set actually changed —
+  // recordSolveDate is idempotent on same-day re-solves and we don't
+  // want StreakBadge re-rendering on every test re-run today. (If the
+  // set didn't change, getStreak() will return the same value too.)
+  if (mutated) {
+    dispatchOnWindow(STREAK_CHANGE_EVENT);
   }
 }
 
