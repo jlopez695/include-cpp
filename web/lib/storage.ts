@@ -99,6 +99,40 @@ function scheduleSupabaseSave(problemId: string, filename: string, content: stri
   );
 }
 
+// Mirror of scheduleSupabaseSave for the "content reverted to starter" case.
+// localStorage gets removeItem() in that case, so the Supabase row should go
+// away too — otherwise the per-file row keeps the last upserted body and
+// drifts out of sync with the local truth. Reset triggers this path via
+// Monaco's setValue → onDidChangeModelContent chain, which calls saveCode
+// with content === starter for every editable file *right after* clearCode
+// has already deleted the row; without this delete, a debounced upsert
+// would fire ~500ms later and resurrect the row with starter content.
+// Shares the same pendingSupabaseSaves map as the upsert path so a rapid
+// type → revert → retype sequence collapses to a single fire of whichever
+// operation matched the user's *final* state.
+function scheduleSupabaseDelete(problemId: string, filename: string): void {
+  const key = `${problemId}:${filename}`;
+  const existing = pendingSupabaseSaves.get(key);
+  if (existing !== undefined) clearTimeout(existing);
+  pendingSupabaseSaves.set(
+    key,
+    setTimeout(() => {
+      pendingSupabaseSaves.delete(key);
+      void getClient().then(sb => {
+        if (!sb) return;
+        sb.from('user_code')
+          .delete()
+          .eq('user_id', getUserId())
+          .eq('problem_id', problemId)
+          .eq('filename', filename)
+          .then(({ error }) => {
+            if (error) console.warn('[supabase] user_code delete failed:', error);
+          });
+      });
+    }, SUPABASE_SAVE_DEBOUNCE_MS),
+  );
+}
+
 export function saveCode(
   problemId: string,
   filename: string,
@@ -107,15 +141,28 @@ export function saveCode(
 ): void {
   if (typeof window === 'undefined') return;
   const key = codeKey(problemId, filename);
+  const matchesStarter = content === starterContent;
 
-  if (content === starterContent) {
+  if (matchesStarter) {
     localStorage.removeItem(key);
   } else {
     localStorage.setItem(key, content);
   }
 
   if (supabaseEnabled) {
-    scheduleSupabaseSave(problemId, filename, content);
+    // Keep the Supabase row in sync with the localStorage truth:
+    //   - non-starter content  → upsert the row with the new content
+    //   - content === starter  → delete the row (matches removeItem above)
+    // The unconditional upsert this used to do was actively wrong on the
+    // Reset path: clearCode() deletes the row, then Monaco's setValue
+    // fires onDidChangeModelContent for each file with content === starter,
+    // and a debounced upsert ~500ms later resurrected the row with the
+    // starter body — undoing the reset for any future read-from-Supabase.
+    if (matchesStarter) {
+      scheduleSupabaseDelete(problemId, filename);
+    } else {
+      scheduleSupabaseSave(problemId, filename, content);
+    }
   }
 }
 
