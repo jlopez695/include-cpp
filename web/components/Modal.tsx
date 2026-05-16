@@ -22,6 +22,21 @@ export function Modal({ open, onClose, title, children, footer, width = 400 }: M
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
+  // Hold the latest onClose in a ref so the focus/trap effect below doesn't
+  // need it as a dep. Callers pass `onClose={() => setOpen(false)}` inline,
+  // which is a fresh function identity on every parent render — putting it
+  // in deps re-triggered the effect's cleanup + setup on every keystroke
+  // in the parent. Each cleanup focused previouslyFocused.current (the
+  // OPENER), then the new setup re-focused the first focusable in the
+  // modal. Net effect: every parent re-render briefly stole focus out of
+  // the modal and snapped it back, producing a visible focus-ring flicker
+  // and, on screen readers, a re-announcement of the dialog. Anchoring
+  // the effect to `[open]` alone fixes it.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -36,7 +51,9 @@ export function Modal({ open, onClose, title, children, footer, width = 400 }: M
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        // Route through the ref so we always call the latest onClose
+        // even though it's not in this effect's dep array.
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab' || !panel) return;
@@ -60,7 +77,7 @@ export function Modal({ open, onClose, title, children, footer, width = 400 }: M
       window.removeEventListener('keydown', handler);
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
