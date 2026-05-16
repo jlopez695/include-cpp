@@ -1,8 +1,19 @@
 import { redirect } from 'next/navigation';
 import { fetchProblems } from '@/lib/api';
+import type { ProblemSummary } from '@/lib/types';
+
+// Redirect-only shim — see app/page.tsx for the same rationale. No
+// static HTML worth prerendering, and prerendering forces the build
+// to depend on the backend being reachable.
+export const dynamic = 'force-dynamic';
 
 export default async function ProblemsIndex() {
-  const problems = await fetchProblems();
+  let problems: ProblemSummary[];
+  try {
+    problems = await fetchProblems();
+  } catch {
+    problems = [];
+  }
   if (problems.length > 0) {
     redirect(`/problems/${problems[0].id}`);
   }
