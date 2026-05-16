@@ -96,4 +96,52 @@ describe('parseDiagnostics', () => {
     const result = parseDiagnostics(stderr, knownFiles);
     assert.equal(result.size, 0);
   });
+
+  /**
+   * `fatal error:` regression. gcc and clang both prefix the
+   * include-not-found message with "fatal error:", and the original
+   * regex only matched `(error|warning|note):`. The result was that the
+   * single most common student mistake on day one ("I typed the header
+   * name wrong") produced zero markers — the user saw stderr text but
+   * the editor had no red squiggle pointing at the offending #include
+   * line. These tests pin that the `(?:fatal\s+)?` branch is wired in.
+   */
+  describe('fatal error severity (the include-not-found case)', () => {
+    it("parses a gcc-shaped `fatal error:` line as severity=error", () => {
+      const stderr = `hello.cpp:5:10: fatal error: nonexistent.h: No such file or directory\n`;
+      const result = parseDiagnostics(stderr, knownFiles);
+      assert.equal(result.size, 1);
+      const diag = result.get('hello.cpp')![0];
+      assert.equal(diag.severity, 'error', 'fatal error must surface as error severity (Monaco has no "fatal" tier)');
+      assert.equal(diag.line, 5);
+      assert.equal(diag.col, 10);
+      assert.equal(diag.message, 'nonexistent.h: No such file or directory');
+    });
+
+    it("parses a clang-shaped `fatal error:` (slightly different message text)", () => {
+      const stderr = `hello.cpp:5:10: fatal error: 'nonexistent.h' file not found\n`;
+      const result = parseDiagnostics(stderr, knownFiles);
+      const diag = result.get('hello.cpp')![0];
+      assert.equal(diag.severity, 'error');
+      assert.equal(diag.message, "'nonexistent.h' file not found");
+    });
+
+    it("does NOT match the literal word 'fatal' in the message body", () => {
+      // Defensive: the prefix is anchored before the severity word, so a
+      // diagnostic whose message HAPPENS to mention "fatal" stays parsed
+      // normally and routes through the regular `error` severity.
+      const stderr = `hello.cpp:3:1: error: fatal misuse of feature\n`;
+      const result = parseDiagnostics(stderr, knownFiles);
+      const diag = result.get('hello.cpp')![0];
+      assert.equal(diag.severity, 'error');
+      assert.equal(diag.message, 'fatal misuse of feature');
+    });
+
+    it('still routes warnings even when "fatal" never appears', () => {
+      // Smoke check the non-fatal path didn't regress.
+      const stderr = `hello.cpp:7:2: warning: unused variable 'z'\n`;
+      const result = parseDiagnostics(stderr, knownFiles);
+      assert.equal(result.get('hello.cpp')![0].severity, 'warning');
+    });
+  });
 });
