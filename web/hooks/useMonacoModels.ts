@@ -101,17 +101,31 @@ export function useMonacoModels() {
     const model = modelsRef.current.get(filename);
     if (!model || model.isDisposed()) return;
 
-    const markers = diagnostics.map(d => ({
-      severity:
-        d.severity === 'error' ? monaco.MarkerSeverity.Error
-        : d.severity === 'warning' ? monaco.MarkerSeverity.Warning
-        : monaco.MarkerSeverity.Info,
-      startLineNumber: d.line,
-      startColumn: d.col,
-      endLineNumber: d.line,
-      endColumn: model.getLineMaxColumn(d.line),
-      message: d.message,
-    }));
+    // Monaco's getLineMaxColumn(N) throws if N is not in [1, lineCount];
+    // setModelMarkers itself also rejects markers with out-of-range
+    // start/end positions. gcc/clang routinely report "expected ';' at
+    // end of file" on line N+1 of an N-line buffer, and template error
+    // chains can name lines deep inside an expanded include that don't
+    // map to anything in the live editor model. Pre-clamp every value
+    // here so a single bad diagnostic in the batch doesn't bubble up
+    // through .map() and lose the entire batch's worth of markers.
+    const lineCount = model.getLineCount();
+    const markers = diagnostics.map(d => {
+      const safeLine = Math.max(1, Math.min(lineCount, d.line));
+      const safeCol = Math.max(1, d.col);
+      const maxCol = model.getLineMaxColumn(safeLine);
+      return {
+        severity:
+          d.severity === 'error' ? monaco.MarkerSeverity.Error
+          : d.severity === 'warning' ? monaco.MarkerSeverity.Warning
+          : monaco.MarkerSeverity.Info,
+        startLineNumber: safeLine,
+        startColumn: Math.min(safeCol, maxCol),
+        endLineNumber: safeLine,
+        endColumn: maxCol,
+        message: d.message,
+      };
+    });
 
     monaco.editor.setModelMarkers(model, 'compiler', markers);
   };
