@@ -95,21 +95,11 @@ export async function runCmake(
   await ensureCTestFile(buildDir);
 
   // Run or test
-  emit({ kind: 'run-start' });
   if (mode === 'run') {
-    // Pick the assignment binary by name (meta.entrypoint). Falling back
-    // to "first executable in build dir" is unsafe: CS 225 cmake setups
-    // build a test runner ALONGSIDE the assignment binary in the same
-    // directory, and readdir order is filesystem-dependent — we don't
-    // want /run silently invoking the Catch2 test harness because
-    // `test` happened to come before `main`.
-    const bin = await findRunnableBinary(buildDir, entrypoint);
-    const run = spawnLimited(shellQuote(bin), { cwd: buildDir, env, signal });
-    pipeRawChild(run.child, emit);
-    const runResult = await run.done;
+    const runResult = await runExecutable(buildDir, entrypoint, env, signal, emit);
     exitCode = runResult.exitCode;
-    emit({ kind: 'run-end', exitCode: runResult.exitCode, killedByTimeout: runResult.killedByTimeout });
   } else {
+    emit({ kind: 'run-start' });
     const junitPath = path.join(buildDir, 'results.xml');
     await fs.promises.rm(junitPath, { force: true });
     const ctest = spawnLimited(`ctest --output-junit "${junitPath}" --output-on-failure`, {
@@ -268,6 +258,36 @@ export async function findRunnableBinary(buildDir: string, entrypoint: string): 
     }
   }
   throw new Error('No runnable binary found in build directory');
+}
+
+/**
+ * Locate the assignment binary and stream its execution.
+ *
+ * findRunnableBinary runs BEFORE emit('run-start'): if no executable is
+ * present in the build directory it throws, the throw escapes back to the
+ * controller's catch block, and the SSE stream closes with a single
+ * 'error' event. Pre-fix this lookup happened AFTER 'run-start', producing
+ * a stream that opened a run-start it never paired with a run-end —
+ * legal for the frontend's current consumers but a contract violation
+ * the cmake-runner shouldn't rely on for terminal-state correctness.
+ *
+ * Exported so the "no orphan run-start when binary missing" invariant can
+ * be exercised in tests without spinning up an actual cmake build.
+ */
+export async function runExecutable(
+  buildDir: string,
+  entrypoint: string,
+  env: NodeJS.ProcessEnv,
+  signal: AbortSignal,
+  emit: StreamCallback,
+): Promise<{ exitCode: number }> {
+  const bin = await findRunnableBinary(buildDir, entrypoint);
+  emit({ kind: 'run-start' });
+  const run = spawnLimited(shellQuote(bin), { cwd: buildDir, env, signal });
+  pipeRawChild(run.child, emit);
+  const runResult = await run.done;
+  emit({ kind: 'run-end', exitCode: runResult.exitCode, killedByTimeout: runResult.killedByTimeout });
+  return { exitCode: runResult.exitCode };
 }
 
 /**
