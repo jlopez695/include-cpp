@@ -42,4 +42,21 @@ describe('Build resilience — `next build` must not depend on backend being up'
       assert.match(src, /try\s*\{[\s\S]*?fetchProblems\(\)[\s\S]*?\}\s*catch[\s\S]*?return\s*\[\]/);
     });
   });
+
+  describe('Problems shared layout (app/problems/layout.tsx)', () => {
+    // Pre-fix the layout did a bare `await fetchProblems()` with no
+    // try/catch — a transient backend outage propagated through the
+    // sidebar fetch into error.tsx for every problem page underneath
+    // the layout, even when the per-problem fetch in page.tsx would
+    // have succeeded. Adding the same try/catch + empty-array fallback
+    // the other shims use degrades the failure to "sidebar list is
+    // empty next to a working problem-detail view" instead of "entire
+    // /problems/* subtree is unreachable."
+    const src = read('app/problems/layout.tsx');
+
+    it('handles fetchProblems failure without throwing (defense in depth)', () => {
+      assert.match(src, /try\s*\{[\s\S]*?fetchProblems\(\)/);
+      assert.match(src, /\}\s*catch[\s\S]*?problems\s*=\s*\[\]/);
+    });
+  });
 });
