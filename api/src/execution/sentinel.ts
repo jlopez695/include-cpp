@@ -66,7 +66,38 @@ export function parseSentinels(chunk: string): SentinelEvent[] {
   return events;
 }
 
-/** Strip sentinel lines from a chunk so they don't render in user-visible output. */
+/**
+ * Strip sentinel markup from a chunk so it doesn't render in the user-visible
+ * output panel.
+ *
+ * Two passes:
+ *
+ *   1. Sentinel-only lines (modulo leading/trailing horizontal whitespace) —
+ *      consume the entire line *including its trailing newline*, so the
+ *      sentinel doesn't leave behind a phantom blank line. This is the common
+ *      case: graders emit sentinels on their own line.
+ *
+ *   2. Anything else that still looks like a sentinel — an inline sentinel
+ *      ("Hello<<<POTD-TEST...>>> world"), or an end-of-stream tail where the
+ *      final sentinel arrived without a trailing newline. Strip just the
+ *      sentinel markup; leave the surrounding text alone.
+ *
+ * The old single-pass implementation was `replace(SENTINEL_RE, '')` followed
+ * by a blanket `replace(/^[ \t]*\n/gm, '')` to collapse the blank line each
+ * stripped sentinel left behind. That second pass also collapsed blank lines
+ * the user printed deliberately — `cout << "a\n\nb\n"` would render as
+ * `a\nb\n` in the output panel, because the cleanup couldn't tell a
+ * sentinel-induced blank line apart from an intentional one. Consuming the
+ * trailing newline as part of the sentinel match removes the need for the
+ * blanket cleanup, so intentional blank lines survive.
+ */
 export function stripSentinels(chunk: string): string {
-  return chunk.replace(SENTINEL_RE, '').replace(/^[ \t]*\n/gm, '');
+  let cleaned = chunk.replace(SENTINEL_LINE_RE, '');
+  cleaned = cleaned.replace(SENTINEL_RE, '');
+  return cleaned;
 }
+
+// Whole-line sentinel: optional leading/trailing horizontal whitespace,
+// followed by the line's terminating newline. Multiline (`m`) so `^`/`$`
+// anchor to line boundaries within the chunk, not just the chunk boundary.
+const SENTINEL_LINE_RE = /^[ \t]*<<<POTD-(?:TEST|RESULT)\s+.+?>>>[ \t]*\r?\n/gm;

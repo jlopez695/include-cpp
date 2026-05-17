@@ -66,3 +66,41 @@ test('handles escaped quotes inside message', () => {
     assert.equal(events[0]!.message, 'he said "no"');
   }
 });
+
+// Regression: the old single-pass strip used a blanket `^[ \t]*\n` cleanup
+// to collapse the blank line each stripped sentinel left behind, which also
+// collapsed blank lines the user printed deliberately. Stripping must
+// preserve intentional whitespace in user output — the only blank lines
+// that should disappear are the ones a sentinel created.
+test('stripSentinels preserves an intentional blank line in user output', () => {
+  const input = 'a\n\nb\n<<<POTD-TEST name="x" status=pass>>>\nc\n';
+  assert.equal(stripSentinels(input), 'a\n\nb\nc\n');
+});
+
+test('stripSentinels preserves consecutive intentional blank lines', () => {
+  const input = 'header\n\n\nfooter\n<<<POTD-RESULT tests-passed=0 tests-total=0>>>\n';
+  assert.equal(stripSentinels(input), 'header\n\n\nfooter\n');
+});
+
+test('stripSentinels handles sentinels on \\r\\n-terminated lines (Windows newlines)', () => {
+  const input = 'a\r\n<<<POTD-TEST name="x" status=pass>>>\r\nb\r\n';
+  // Both the sentinel's preceding CR/LF and its own CR/LF terminator should
+  // be consumed; the user's CR/LF line endings stay intact.
+  assert.equal(stripSentinels(input), 'a\r\nb\r\n');
+});
+
+test('stripSentinels still removes a sentinel embedded inline with user output', () => {
+  // Grader emitting a sentinel without a trailing newline next to user
+  // output on the same line — strip just the sentinel markup, keep the
+  // surrounding text.
+  const input = 'before<<<POTD-TEST name="inline" status=pass>>>after\n';
+  assert.equal(stripSentinels(input), 'beforeafter\n');
+});
+
+test('stripSentinels still removes an end-of-stream tail sentinel with no newline', () => {
+  // The on-end flush in pipeChild can hand stripSentinels a complete
+  // sentinel that has no trailing newline (case (b) in the makefile-runner
+  // comment). The fallback (inline) strip still has to remove it.
+  const input = '<<<POTD-RESULT tests-passed=1 tests-total=1>>>';
+  assert.equal(stripSentinels(input), '');
+});
