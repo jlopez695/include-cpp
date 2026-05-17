@@ -100,4 +100,44 @@ describe('splitOutputChunk', () => {
     // must vanish, not show up as `[31mhi[0m` in the panel.
     assert.deepEqual(splitOutputChunk('\x1b[31mhi\x1b[0m\n'), ['hi']);
   });
+
+  // Pre-fix the helper split on `\n` alone, so any CRLF-terminated
+  // chunk left a stray `\r` glued to the end of each line. The control
+  // char then rode along through `whitespace-pre-wrap` rendering AND
+  // through formatOutputText's Copy button, producing literal CRs in
+  // clipboard output that didn't match what a terminal would show.
+  // Bare `\r` (without a following `\n`) must NOT be touched \u2014 that's
+  // the carriage-return-only escape used for in-place progress bars,
+  // and conflating it with a line terminator would split one logical
+  // line into two.
+  it('"a\\r\\nb\\r\\n" \u2192 ["a", "b"] (CRLF line endings, no stray \\r)', () => {
+    assert.deepEqual(splitOutputChunk('a\r\nb\r\n'), ['a', 'b']);
+  });
+
+  it('"a\\r\\n\\r\\nb\\r\\n" \u2192 ["a", "", "b"] (CRLF preserves intentional blank lines)', () => {
+    assert.deepEqual(splitOutputChunk('a\r\n\r\nb\r\n'), ['a', '', 'b']);
+  });
+
+  it('mixed `\\n` and `\\r\\n` line terminators in one chunk', () => {
+    // A producer might mix endings (some libc impls do this when
+    // mixing puts/printf with custom buffered writers). Each terminator
+    // must collapse to its line, leaving no trailing `\r` on the
+    // CRLF-ended line.
+    assert.deepEqual(splitOutputChunk('a\nb\r\nc\n'), ['a', 'b', 'c']);
+  });
+
+  it('bare "\\r" without a following "\\n" is preserved (progress-bar use)', () => {
+    // `printf("progress: 50%%\rdone\n")` overwrites "progress: 50%"
+    // with "done" in-place; the bare `\r` is meaningful and must NOT
+    // be treated as a line terminator. Splitting it would surface as
+    // two separate rows in the output panel instead of one updating
+    // line.
+    assert.deepEqual(splitOutputChunk('progress\rdone\n'), ['progress\rdone']);
+  });
+
+  it('lone "\\r\\n" \u2192 [""] (Windows-flavored single blank line)', () => {
+    // Parity with the `\n` case: a single CRLF chunk yields exactly
+    // one empty row, matching one terminal blank line.
+    assert.deepEqual(splitOutputChunk('\r\n'), ['']);
+  });
 });
