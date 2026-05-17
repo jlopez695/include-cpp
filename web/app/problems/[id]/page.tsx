@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import { fetchProblem, fetchProblems, fetchHealth, ApiError } from '@/lib/api';
+import type { HealthResponse } from '@/lib/types';
 import { renderMarkdown } from '@/lib/markdown-server';
 import { findHeavyLazyChunks } from '@/lib/preload-hints';
 import { ProblemWorkspace } from './ProblemWorkspace';
@@ -10,6 +11,18 @@ import Loading from './loading';
 interface Props {
   params: Promise<{ id: string }>;
 }
+
+// Catch-fallback for fetchHealth — the only field the page actually
+// consumes off the response is `warnings`, so the safe thing on
+// failure is "no warnings to show." The full shape is materialized
+// explicitly so the catch branch satisfies HealthResponse instead of
+// drifting to an ad-hoc `{ status: 'ok' }` literal that doesn't even
+// match the response type the rest of the codebase uses.
+const HEALTH_UNAVAILABLE: HealthResponse = {
+  ok: false,
+  toolchain: { ccache: false, cmake: false, make: false, clangxx: false, cxx: false },
+  warnings: [],
+};
 
 export async function generateStaticParams() {
   try {
@@ -37,8 +50,16 @@ export default async function ProblemPage({ params }: Props) {
   }
 
   const [problems, health, markdownHtml, preloadChunks] = await Promise.all([
-    fetchProblems(),
-    fetchHealth().catch(() => ({ status: 'ok' as const, warnings: [] })),
+    // Inner fetchProblems is only used for prev/next nav arrows. A
+    // backend outage here previously threw and propagated to
+    // error.tsx, taking the page down even when fetchProblem(id) above
+    // had already succeeded against the SAME backend a millisecond
+    // earlier — the per-request fetch dedupe gives them a shared HTTP
+    // request, but ISR cache state means they can still resolve
+    // differently on the boundary. Empty-array fallback degrades to
+    // "page renders without nav arrows" instead of "page disappears."
+    fetchProblems().catch(() => []),
+    fetchHealth().catch(() => HEALTH_UNAVAILABLE),
     renderMarkdown(problem.markdown),
     findHeavyLazyChunks(),
   ]);
