@@ -273,9 +273,36 @@ export function clearCode(problemId: string, filenames: string[]): void {
 
 const statusKey = (problemId: string) => `potd:status:${problemId}`;
 
+// Valid Status values, parallel to the `Status` union in lib/types. Inlined
+// (not exported from types) because runtime validation needs the actual set
+// of strings, not just the compile-time type.
+const VALID_STATUSES = new Set<Status>(['solved', 'attempted']);
+
 export function loadStatus(problemId: string): Status {
   if (typeof window === 'undefined') return 'unsolved';
-  return (safeGetItem(statusKey(problemId)) as Status) || 'unsolved';
+  // The old `(safeGetItem(...) as Status) || 'unsolved'` cast was a lie:
+  // it accepted ANY non-empty string at runtime and labeled it Status,
+  // even though the only writer (saveStatus) only ever persists 'solved'
+  // or 'attempted' (and removes the key for 'unsolved'). Realistic
+  // corruption sources are the same set as the other storage entries —
+  // a devtools edit, a clobbering browser extension, a half-written
+  // value from a tab killed mid-setItem, an old build's value that
+  // doesn't match the current Status union after a rename. Without
+  // validation, the bogus value flows out:
+  //   - TopBar / StatusDot do `aria-label={status}`, so a screen reader
+  //     announces "weird-value" verbatim;
+  //   - pickRandom's `=== 'unsolved'` and `=== 'attempted'` filters
+  //     both miss, falling through to the "all others" branch and
+  //     subtly skewing the random pick;
+  //   - the Sidebar's solvedCount filter `=== 'solved'` is correct on
+  //     the count side, but any future code that exhaustively switches
+  //     on Status (TypeScript would think it's exhaustive) hits a
+  //     silent runtime default for the unknown value.
+  // Validate against the union explicitly: anything that isn't one of
+  // the two persisted states becomes 'unsolved' (the same shape the
+  // user gets when the key is missing entirely).
+  const raw = safeGetItem(statusKey(problemId));
+  return raw && VALID_STATUSES.has(raw as Status) ? (raw as Status) : 'unsolved';
 }
 
 /**

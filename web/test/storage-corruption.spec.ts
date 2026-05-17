@@ -20,6 +20,7 @@ import {
   getBookmarkedIds,
   toggleBookmark,
   isBookmarked,
+  loadStatus,
 } from '../lib/storage.js';
 
 // Each top-level read of a JSON-encoded localStorage key used to throw
@@ -114,5 +115,56 @@ describe('storage: corrupt localStorage values must not throw', () => {
     const result = toggleBookmark('POTD0');
     assert.equal(result, true);
     assert.deepEqual(getBookmarkedIds(), ['POTD0']);
+  });
+
+  /* ── per-problem status ── */
+
+  // Pre-fix, loadStatus did `(safeGetItem(...) as Status) || 'unsolved'`
+  // — the cast told TypeScript whatever string was in storage was
+  // a Status, but at runtime anything truthy passed through unchanged.
+  // The post-fix path validates against the actual set of values
+  // saveStatus is allowed to write ('solved' | 'attempted') and falls
+  // back to 'unsolved' for anything else.
+  it('loadStatus returns "solved" when storage holds the literal string', () => {
+    store['potd:status:POTD0'] = 'solved';
+    assert.equal(loadStatus('POTD0'), 'solved');
+  });
+
+  it('loadStatus returns "attempted" when storage holds the literal string', () => {
+    store['potd:status:POTD0'] = 'attempted';
+    assert.equal(loadStatus('POTD0'), 'attempted');
+  });
+
+  it('loadStatus normalizes an arbitrary corrupted value to "unsolved"', () => {
+    // A clobbering extension wrote a value that isn't one of the
+    // persisted states. Without validation the StatusDot's
+    // aria-label would announce the corrupted string verbatim and
+    // pickRandom's filters would miss in subtle ways.
+    store['potd:status:POTD0'] = 'garbage-value';
+    assert.equal(loadStatus('POTD0'), 'unsolved');
+  });
+
+  it('loadStatus normalizes the legacy "unsolved" literal to "unsolved" (no-op)', () => {
+    // saveStatus only persists 'solved' or 'attempted' (it deletes
+    // the row for 'unsolved'), but a localStorage row inherited from
+    // an older build might still hold the literal 'unsolved'. The
+    // validator must reject it as not-in-the-allowed-set, which
+    // happens to produce the same observable result. The pin is the
+    // path through the validator, not the return value alone.
+    store['potd:status:POTD0'] = 'unsolved';
+    assert.equal(loadStatus('POTD0'), 'unsolved');
+  });
+
+  it('loadStatus returns "unsolved" when the key is missing entirely', () => {
+    assert.equal(loadStatus('POTD0'), 'unsolved');
+  });
+
+  it('loadStatus returns "unsolved" when storage holds the empty string', () => {
+    // `safeSetItem('', '')` is rare but possible — Firefox in private
+    // mode used to set keys to '' on quota errors. The old `|| 'unsolved'`
+    // already handled this via falsy short-circuit, but the new validator
+    // path needs the same observable behavior.
+    store['potd:status:POTD0'] = '';
+    assert.equal(loadStatus('POTD0'), 'unsolved');
   });
 });
