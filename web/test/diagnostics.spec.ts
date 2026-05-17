@@ -144,4 +144,67 @@ describe('parseDiagnostics', () => {
       assert.equal(result.get('hello.cpp')![0].severity, 'warning');
     });
   });
+
+  /**
+   * CRLF line-ending regression. DIAG_RE's `(.+)$` uses `.`, which in
+   * JavaScript regex does NOT match `\r` (line terminator). Before the
+   * fix, splitting stderr only on `\n` left a trailing `\r` glued to the
+   * end of each line on any CRLF-emitting toolchain — and the whole
+   * regex then failed, dropping the diagnostic completely. Visible
+   * symptom: wall of compiler errors in the output panel but zero
+   * red squiggles in Monaco. Toolchains affected: MinGW, Cygwin,
+   * some C++ runtime libraries on Windows-flavored builds, and any
+   * user explicitly writing `\r\n` newlines in their error messages.
+   */
+  describe('CRLF line endings (the silent-drop regression)', () => {
+    it('parses an error from a CRLF-terminated stderr line', () => {
+      const stderr = `hello.cpp:10:5: error: use of undeclared identifier 'x'\r\n`;
+      const result = parseDiagnostics(stderr, knownFiles);
+      assert.equal(result.size, 1, 'CRLF must not silently drop the diagnostic');
+      const diag = result.get('hello.cpp')![0];
+      assert.equal(diag.line, 10);
+      assert.equal(diag.col, 5);
+      assert.equal(diag.severity, 'error');
+      // The message must NOT contain the trailing \r — Monaco's
+      // marker tooltip would surface it as an artifact otherwise.
+      assert.equal(diag.message, "use of undeclared identifier 'x'");
+    });
+
+    it('parses multiple CRLF-terminated diagnostics in one stderr block', () => {
+      const stderr =
+        'hello.cpp:1:1: error: first\r\n' +
+        'hello.cpp:5:10: warning: second\r\n' +
+        'hello.cpp:8:1: note: third\r\n';
+      const result = parseDiagnostics(stderr, knownFiles);
+      const diags = result.get('hello.cpp')!;
+      assert.equal(diags.length, 3, 'all three CRLF-terminated diagnostics must be parsed');
+      assert.equal(diags[0].message, 'first');
+      assert.equal(diags[1].message, 'second');
+      assert.equal(diags[2].message, 'third'); // note → info severity is covered elsewhere
+    });
+
+    it('parses a diagnostic when stderr has no final newline but trailing \\r', () => {
+      // Subtle: the split eats \r before \n, but if the last "line" of
+      // stderr is `foo\r` with NO following \n, the split leaves the
+      // \r in place. The per-line strip catches it.
+      const stderr = `hello.cpp:10:5: error: foo\r`;
+      const result = parseDiagnostics(stderr, knownFiles);
+      assert.equal(result.size, 1);
+      assert.equal(result.get('hello.cpp')![0].message, 'foo');
+    });
+
+    it('mixed \\n and \\r\\n endings in one stderr block both parse', () => {
+      // Some libc impls mix endings when buffered + unbuffered writers
+      // interleave. Both terminators must produce parsed diagnostics
+      // and neither must leak \r into the messages.
+      const stderr =
+        'hello.cpp:1:1: error: lf-line\n' +
+        'hello.cpp:2:1: error: crlf-line\r\n';
+      const result = parseDiagnostics(stderr, knownFiles);
+      const diags = result.get('hello.cpp')!;
+      assert.equal(diags.length, 2);
+      assert.equal(diags[0].message, 'lf-line');
+      assert.equal(diags[1].message, 'crlf-line');
+    });
+  });
 });
