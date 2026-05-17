@@ -5,6 +5,7 @@ import type { ProblemDetail, SentinelEvent, Status, FileTab, TestResult } from '
 import { inferStatus, buildSummary } from '@/lib/status';
 import { loadCode, saveCode, clearCode, loadStatus, saveStatus, recordSolveDate, saveBestResult } from '@/lib/storage';
 import { parseDiagnostics } from '@/lib/diagnostics';
+import { splitOutputChunk } from '@/lib/output-format';
 import { useSSE } from './useSSE';
 import { useMonacoModels } from './useMonacoModels';
 
@@ -168,10 +169,15 @@ export function useProblemEditor(problem: ProblemDetail): ProblemEditorState {
     });
   };
 
-  const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
-
   const appendOutput = (text: string, cls = '') => {
-    const lines = stripAnsi(text).split('\n');
+    // splitOutputChunk handles ANSI stripping AND drops the trailing
+    // empty produced by `split('\n')` on a chunk that ends with `\n` —
+    // without that drop, every line-buffered printf in the user's code
+    // would render as `text<blank>` in the output panel because the
+    // empty mapped to a literal-space line. The `line || ' '` here is
+    // still needed for *interior* blank lines (intentional printf("\n"))
+    // since an empty <div> would collapse to zero-height in CSS.
+    const lines = splitOutputChunk(text);
     setOutputLines(prev => [
       ...prev,
       ...lines.map(line => ({ text: line || ' ', cls })),
