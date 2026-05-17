@@ -11,9 +11,9 @@ import fastifyCompress from '@fastify/compress';
 import { AppModule } from './app.module.js';
 import { logToolchainStartupBanner } from './common/toolchain.js';
 import { LoggingInterceptor } from './common/logging.interceptor.js';
+import { computeCorsOrigins } from './common/cors-origins.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000';
 
 async function bootstrap() {
   logToolchainStartupBanner();
@@ -33,7 +33,7 @@ async function bootstrap() {
   });
 
   await app.register(fastifyCors as any, {
-    origin: [FRONTEND_ORIGIN, 'http://localhost:3000', 'http://localhost:5173'],
+    origin: computeCorsOrigins(process.env),
     credentials: true,
   });
 
