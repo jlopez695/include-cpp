@@ -58,8 +58,26 @@ export function parseSentinels(chunk: string): SentinelEvent[] {
       const message = kv.message;
       events.push(message ? { type: 'test', name, status, message } : { type: 'test', name, status });
     } else {
-      const passed = Number(kv['tests-passed'] ?? 0);
-      const total = Number(kv['tests-total'] ?? 0);
+      // `Number("abc") === NaN` and `Number(undefined) === NaN`. With the
+      // `?? 0` defaults a missing key resolves to 0, but a present-but-
+      // unparseable value (a grader bug, a partial sentinel like
+      // `tests-passed=` with no rhs, or any future format mismatch) still
+      // produced NaN. NaN flowed straight into the ResultEvent, then into
+      // the controller's terminal `done` event, then onto the SSE wire as
+      // JSON.stringify({...,passed:NaN}) → `{"passed":null,...}`. The
+      // frontend's status.inferStatus then read `event.total > 0` → false
+      // (NaN/null comparison) → status stayed 'unsolved' AND
+      // buildSummary returned null, so a grader that emitted a malformed
+      // result line LOOKED like a grader that emitted no result at all:
+      // a green-test run could come back marked unsolved with no summary,
+      // with no obvious failure path to debug. Coerce NaN to 0 here so a
+      // malformed grader emits something downstream consumers can read
+      // (0/0 reads the same as no result line at all — the existing
+      // failure mode — rather than a NaN-poisoned result line).
+      const rawPassed = Number(kv['tests-passed'] ?? 0);
+      const rawTotal = Number(kv['tests-total'] ?? 0);
+      const passed = Number.isFinite(rawPassed) ? rawPassed : 0;
+      const total = Number.isFinite(rawTotal) ? rawTotal : 0;
       events.push({ type: 'result', passed, total });
     }
   }

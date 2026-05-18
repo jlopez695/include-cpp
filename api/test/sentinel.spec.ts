@@ -21,6 +21,30 @@ test('parses a result line', () => {
   assert.deepEqual(events, [{ type: 'result', passed: 3, total: 5 }]);
 });
 
+test('result line with non-numeric counts coerces to 0 (no NaN leak)', () => {
+  // Pre-fix, `Number("abc")` → NaN flowed straight into the ResultEvent.
+  // Downstream the controller's `done` event carried NaN, JSON.stringify
+  // coerced NaN to null on the wire, and the frontend's inferStatus
+  // (`event.total > 0`) returned false on NaN-or-null — so a grader bug
+  // that emitted a malformed result line LOOKED like a grader that
+  // emitted no result line at all. A green-test run could come back
+  // marked unsolved with no summary, with no obvious failure path to
+  // debug. Coercing NaN to 0 keeps the wire payload type-stable and
+  // collapses the malformed-result case onto the same downstream path
+  // as the no-result case (which is the existing failure mode the rest
+  // of the pipeline already handles).
+  const events = parseSentinels('<<<POTD-RESULT tests-passed=abc tests-total=xyz>>>');
+  assert.equal(events.length, 1);
+  const ev = events[0]!;
+  assert.equal(ev.type, 'result');
+  if (ev.type === 'result') {
+    assert.equal(ev.passed, 0, 'unparseable passed must be 0, not NaN');
+    assert.equal(ev.total, 0, 'unparseable total must be 0, not NaN');
+    assert.ok(!Number.isNaN(ev.passed), 'passed must not be NaN');
+    assert.ok(!Number.isNaN(ev.total), 'total must not be NaN');
+  }
+});
+
 test('parses multiple events from one chunk', () => {
   const events = parseSentinels(
     'noise\n<<<POTD-TEST name="a" status=pass>>>\nnoise\n<<<POTD-TEST name="b" status=fail message="x">>>\n<<<POTD-RESULT tests-passed=1 tests-total=2>>>',
