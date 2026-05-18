@@ -47,14 +47,40 @@ export function parseJUnit(xml: string): JUnitResult {
   } catch {
     return { passed: 0, total: 0, tests: [] };
   }
-  const root = doc?.testsuite ?? doc?.testsuites?.testsuite ?? doc?.testsuites;
-  if (!root) return { passed: 0, total: 0, tests: [] };
+  // Locate the <testsuite> node(s). Three real-world shapes:
+  //   1. <testsuite>…</testsuite>                     → doc.testsuite (object)
+  //   2. <testsuites><testsuite>…</testsuite></…>     → doc.testsuites.testsuite (object)
+  //   3. <testsuites>
+  //        <testsuite>…</testsuite>
+  //        <testsuite>…</testsuite>
+  //      </testsuites>                                → doc.testsuites.testsuite (array)
+  //
+  // Pre-fix shape 3 silently dropped EVERY testcase. The old code reduced
+  // every shape to a single `root` value, then read `root.testcase` —
+  // which is `undefined` when `root` is an array, so `cases` became `[]`
+  // and the whole run reported 0/0. ctest emits shape 3 whenever a build
+  // registers more than one test binary (multiple add_test invocations,
+  // or catch_discover_tests called for more than one Catch2 binary), so
+  // the corner case is realistic enough that "looks 0/0 because there
+  // were two test executables" is a credible support ticket.
+  //
+  // Normalize to an array of suites instead, and flatten testcases out
+  // of each. Shape 1 wraps to a 1-element array; shapes 2 and 3 both
+  // resolve via doc.testsuites.testsuite (object or array). Empty
+  // <testsuites/> (no inner suite) collapses to []. Other XML shapes
+  // (a bare `doc.testsuites` object with neither testsuite nor testcase)
+  // also collapse to [] safely.
+  const suiteNode = doc?.testsuite ?? doc?.testsuites?.testsuite;
+  const suites: any[] = suiteNode == null
+    ? []
+    : Array.isArray(suiteNode) ? suiteNode : [suiteNode];
+  if (suites.length === 0) return { passed: 0, total: 0, tests: [] };
 
-  const cases = Array.isArray(root.testcase)
-    ? root.testcase
-    : root.testcase
-      ? [root.testcase]
-      : [];
+  const cases: any[] = [];
+  for (const suite of suites) {
+    if (Array.isArray(suite.testcase)) cases.push(...suite.testcase);
+    else if (suite.testcase) cases.push(suite.testcase);
+  }
 
   const tests: JUnitTest[] = cases.map((tc: any) => {
     // Precedence when multiple children are present (shouldn't happen in well-

@@ -26,6 +26,41 @@ const WRAPPED_TESTSUITES = `<?xml version="1.0" encoding="UTF-8"?>
   </testsuite>
 </testsuites>`;
 
+// Real-world shape that the pre-fix parser dropped on the floor:
+// <testsuites> wrapping MULTIPLE <testsuite> siblings. fast-xml-parser
+// surfaces those as `doc.testsuites.testsuite` = Array, and the old
+// `Array.isArray(root.testcase)` branch sees `undefined` on an array,
+// so `cases` became `[]` and the whole run reported 0/0. ctest emits
+// this shape whenever a build registers more than one test binary —
+// for instance, two add_test() invocations, or catch_discover_tests
+// run for two separate Catch2 executables.
+const MULTI_SUITE = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="A" tests="2" failures="0">
+    <testcase name="a1" time="0.001" />
+    <testcase name="a2" time="0.002" />
+  </testsuite>
+  <testsuite name="B" tests="2" failures="1">
+    <testcase name="b1" time="0.003" />
+    <testcase name="b2" time="0.004">
+      <failure message="b2 boom" />
+    </testcase>
+  </testsuite>
+</testsuites>`;
+
+// Mixed-shape multi-suite: one suite has a single <testcase> (object),
+// the other has an array. The flattener has to normalize both.
+const MULTI_SUITE_MIXED = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Solo">
+    <testcase name="only_one" />
+  </testsuite>
+  <testsuite name="Pair">
+    <testcase name="p1" />
+    <testcase name="p2"><failure>nope</failure></testcase>
+  </testsuite>
+</testsuites>`;
+
 const SINGLE_CASE = `<?xml version="1.0" encoding="UTF-8"?>
 <testsuite name="Solo" tests="1">
   <testcase name="alone" />
@@ -89,6 +124,33 @@ test('handles <testsuites> wrapper', () => {
   assert.equal(r.total, 2);
   assert.equal(r.passed, 1);
   assert.equal(r.tests.find(t => t.name === 'b')?.status, 'fail');
+});
+
+test('flattens multiple <testsuite> siblings inside <testsuites>', () => {
+  // Pre-fix regression: this exact shape made parseJUnit return 0/0
+  // and an empty tests array, because `root` became an Array and
+  // `root.testcase` is undefined. The fix walks the suites and
+  // concatenates their testcases.
+  const r = parseJUnit(MULTI_SUITE);
+  assert.equal(r.total, 4, 'all 4 testcases across both suites must be counted');
+  assert.equal(r.passed, 3, 'only b2 failed');
+  assert.equal(r.tests.find(t => t.name === 'a1')?.status, 'pass');
+  assert.equal(r.tests.find(t => t.name === 'a2')?.status, 'pass');
+  assert.equal(r.tests.find(t => t.name === 'b1')?.status, 'pass');
+  const b2 = r.tests.find(t => t.name === 'b2');
+  assert.equal(b2?.status, 'fail');
+  assert.equal(b2?.message, 'b2 boom');
+});
+
+test('multi-suite: handles a suite with a single testcase (object, not array) alongside a suite with multiple', () => {
+  // fast-xml-parser delivers a single child as an object and multiple
+  // as an array. The flattener must normalize both per-suite shapes.
+  const r = parseJUnit(MULTI_SUITE_MIXED);
+  assert.equal(r.total, 3);
+  assert.equal(r.passed, 2);
+  assert.equal(r.tests.find(t => t.name === 'only_one')?.status, 'pass');
+  assert.equal(r.tests.find(t => t.name === 'p1')?.status, 'pass');
+  assert.equal(r.tests.find(t => t.name === 'p2')?.status, 'fail');
 });
 
 test('single-testcase document is not flattened', () => {
