@@ -223,6 +223,44 @@ test('failure precedence: <failure> wins over <skipped> if both appear', () => {
   assert.equal(r.tests[0]?.message, 'real failure');
 });
 
+test('non-numeric @_time attribute resolves to durationMs=null, not NaN', () => {
+  // Pre-fix path:
+  //   parseFloat("not-a-number") → NaN
+  //   Math.round(NaN * 1000)     → NaN
+  //   durationMs                 → NaN  (NOT null, despite the type)
+  // The downstream consumer in cmake-runner does
+  //   t.durationMs != null ? { ...withMessage, durationMs: t.durationMs } : withMessage
+  // and NaN passes `!= null`, so the SSE event carried `durationMs: NaN`.
+  // JSON.stringify(NaN) === 'null', so the wire payload looked sane —
+  // but the in-process value was NaN, the type was a lie, and a server-side
+  // render of the duration pill would have shown "NaNms".
+  // Post-fix: a non-finite parseFloat result resolves to durationMs=null.
+  const xml = `<?xml version="1.0"?>
+    <testsuite name="t" tests="2">
+      <testcase name="bad_time" time="not-a-number" />
+      <testcase name="empty_time" time="" />
+    </testsuite>`;
+  const r = parseJUnit(xml);
+  const bad = r.tests.find(t => t.name === 'bad_time');
+  const empty = r.tests.find(t => t.name === 'empty_time');
+  // The pre-fix value was NaN. `NaN === null` is false and `NaN === NaN` is
+  // false, so a naive `assert.equal(..., null)` would also have failed on
+  // a NaN. The explicit Number.isNaN check below pins the distinction.
+  assert.equal(bad?.durationMs, null, 'unparseable time must produce null, not NaN');
+  assert.ok(!Number.isNaN(bad?.durationMs as number | null), 'durationMs must not be NaN');
+  assert.equal(empty?.durationMs, null, 'empty time string must produce null, not NaN');
+  assert.ok(!Number.isNaN(empty?.durationMs as number | null), 'durationMs must not be NaN');
+});
+
+test('valid float time still parses correctly (smoke check the parser fix did not regress the happy path)', () => {
+  const xml = `<?xml version="1.0"?>
+    <testsuite name="t" tests="1">
+      <testcase name="ok" time="0.250" />
+    </testsuite>`;
+  const r = parseJUnit(xml);
+  assert.equal(r.tests[0]?.durationMs, 250);
+});
+
 test('failure body text (no attribute) is captured', () => {
   const xml = `<?xml version="1.0"?>
     <testsuite name="t" tests="1">

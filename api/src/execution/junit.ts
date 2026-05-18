@@ -98,8 +98,25 @@ export function parseJUnit(xml: string): JUnitResult {
       status = 'skip';
       message = extractChildText(tc.skipped);
     }
+    // `@_time` is documented as seconds-as-float (e.g. "0.123"), but it
+    // arrives as a string from the XML attribute and a malformed or empty
+    // attribute parses as NaN — `parseFloat("")`, `parseFloat("nan")`,
+    // `parseFloat("inf")`, anything non-numeric. Pre-fix that NaN flowed
+    // straight through to durationMs: the type said `number | null` but
+    // the runtime value was NaN. JSON.stringify silently coerces NaN to
+    // null on the wire, so the bug was invisible at the SSE boundary —
+    // but any in-process consumer that read durationMs before serialization
+    // (a future log line, a metric, a server-side render of the duration
+    // pill) would have surfaced "NaNms" or quietly skewed an aggregation.
+    // Reject non-finite durations explicitly so the type stops lying and
+    // the wire payload doesn't depend on JSON.stringify's NaN→null
+    // coercion to look correct.
     const timeStr = tc['@_time'];
-    const durationMs = timeStr != null ? Math.round(parseFloat(timeStr) * 1000) : null;
+    let durationMs: number | null = null;
+    if (timeStr != null) {
+      const seconds = parseFloat(timeStr);
+      if (Number.isFinite(seconds)) durationMs = Math.round(seconds * 1000);
+    }
     return { name: tc['@_name'] ?? 'unnamed', status, message, durationMs };
   });
 
