@@ -189,15 +189,62 @@ function validateMetaShape(parsed: unknown, id: string): Meta {
   if (!Array.isArray(m.editableFiles) || !m.editableFiles.every(f => typeof f === 'string')) {
     throw new Error(`Problem ${id}: meta.json field 'editableFiles' must be an array of strings`);
   }
+  for (const f of m.editableFiles as string[]) {
+    assertBareFilename(id, 'editableFiles', f);
+  }
   if (m.readOnlyFiles !== undefined) {
     if (!Array.isArray(m.readOnlyFiles) || !m.readOnlyFiles.every(f => typeof f === 'string')) {
       throw new Error(`Problem ${id}: meta.json field 'readOnlyFiles' must be an array of strings when present`);
+    }
+    for (const f of m.readOnlyFiles as string[]) {
+      assertBareFilename(id, 'readOnlyFiles', f);
     }
   }
   if (typeof m.entrypoint !== 'string') {
     throw new Error(`Problem ${id}: meta.json field 'entrypoint' must be a string`);
   }
+  assertBareFilename(id, 'entrypoint', m.entrypoint);
   return parsed as Meta;
+}
+
+/**
+ * Reject any meta.json path field that escapes its problem directory or
+ * embeds shell-/path-corrupting bytes. This is defense in depth against
+ * a hostile-contributor PR landing a poisoned meta.json — NOT against a
+ * user request, which is already gated by validateRunRequest's
+ * editableFiles allowlist in execution.service.ts.
+ *
+ * Specifically guards three downstream sinks:
+ *
+ *   1. `entrypoint` flows to cmake-runner.findRunnableBinary
+ *      (path.join(buildDir, entrypoint)) and makefile-runner
+ *      (shellQuote(`./${entrypoint}`)). A meta.json with
+ *      `entrypoint: "../../bin/sh"` would resolve upward through
+ *      path.join, pass findRunnableBinary's stat+access(X_OK) on the
+ *      target, and runExecutable would spawn /bin/sh under ulimit with
+ *      cwd=buildDir.
+ *   2. `editableFiles` entries flow to readDetailFromDisk's
+ *      `fs.readFileSync(path.join(problemDir, filename), 'utf8')` at
+ *      boot. A poisoned `editableFiles: ["../../etc/passwd"]` would
+ *      read host files into the detail cache and surface them through
+ *      /problems/:id to any caller.
+ *   3. `readOnlyFiles` entries flow to the same readProblemFile call
+ *      via `readOnlyFiles_content`. Same exfiltration vector.
+ *
+ * The rules:
+ *   - No leading '/' — rejects absolute paths.
+ *   - No '..' anywhere — rejects parent traversal. Strict-substring
+ *     check (not a path-segment check) so 'foo..bar' is also blocked;
+ *     legitimate filenames never contain '..'.
+ *   - No NUL bytes — rejects truncation attacks against any downstream
+ *     C path consumer (the C++ harness, dlopen, exec).
+ */
+function assertBareFilename(id: string, field: string, value: string): void {
+  if (value.startsWith('/') || value.includes('..') || value.includes('\0')) {
+    throw new Error(
+      `Problem ${id}: meta.json field '${field}' must be a bare filename relative to the problem directory; got ${JSON.stringify(value)} (no absolute paths, parent-directory references, or NUL bytes)`,
+    );
+  }
 }
 
 /**
