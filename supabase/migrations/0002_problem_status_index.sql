@@ -1,0 +1,40 @@
+-- 0002_problem_status_index — docs-only follow-up to 0001_init.sql
+--
+-- Background: 0001_init.sql creates two analogous tables — user_code
+-- and problem_status — both keyed on (user_id, problem_id). user_code
+-- ALSO carries an explicit named index:
+--
+--     create index if not exists user_code_problem_idx
+--       on public.user_code (user_id, problem_id);
+--
+-- problem_status does NOT. A first-pass audit reading 0001_init.sql
+-- can therefore look like problem_status is missing the same
+-- (user_id, problem_id) composite index that user_code has — and a
+-- future maintainer's natural reaction is to "fix the asymmetry" by
+-- adding it.
+--
+-- That add would be redundant. problem_status's primary key is
+-- `primary key (user_id, problem_id)` — Postgres backs every PK
+-- with a unique btree index on the PK columns, so the lookup path
+-- `select * from problem_status where user_id = $1 and problem_id = $2`
+-- already hits an index scan. Adding `create index problem_status_
+-- problem_idx on (user_id, problem_id)` would create a SECOND
+-- duplicate index over the same columns, slowing every write and
+-- consuming storage with no read-side benefit.
+--
+-- (user_code is the asymmetric one for a real reason: its PK is
+-- (user_id, problem_id, filename), so a query that filters by only
+-- the first two columns CAN use the PK index but doesn't get the
+-- per-row early-out the narrower index provides. problem_status has
+-- no filename column, so the PK is already the narrowest available
+-- composite.)
+--
+-- This migration intentionally makes NO schema change. The only
+-- effect is to attach a table comment that documents the asymmetry
+-- so the next maintainer doesn't add the redundant index. A pure-
+-- docs migration is the right shape: a future migration ordering
+-- the comment after a destructive change would still apply cleanly,
+-- and there's no code path that depends on the comment.
+
+comment on table public.problem_status is
+  'PK (user_id, problem_id) doubles as the (user_id, problem_id) lookup index. Unlike user_code (which has a separate user_code_problem_idx because its PK is the wider (user_id, problem_id, filename)), problem_status does NOT need a separate composite index — adding one would only slow writes with a duplicate covering the same columns. See migration 0002 for rationale.';
