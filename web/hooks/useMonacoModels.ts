@@ -63,6 +63,20 @@ export function useMonacoModels() {
 
     activeFileRef.current = filename;
     const model = modelsRef.current.get(filename);
+    // ensureModel already re-creates the model if the cached one is
+    // disposed, but switchTo can be called directly from the public
+    // surface (EditorPanel's setActiveFile, the host's loadIntoModels)
+    // without going through ensureModel first. If the cached model has
+    // been disposed externally — StrictMode double-mount mid-disposeAll,
+    // a caller that holds a stale ref and disposes it — calling
+    // editor.setModel(disposedModel) throws inside Monaco and leaves the
+    // editor blank with no error visible to the user. Drop the stale
+    // entry from the map (so the next ensureModel re-creates it cleanly)
+    // and bail; the next switchTo call after the re-create will succeed.
+    if (model && model.isDisposed()) {
+      modelsRef.current.delete(filename);
+      return;
+    }
     if (model) {
       editor.setModel(model);
       editor.updateOptions({ readOnly });

@@ -55,4 +55,31 @@ describe('useMonacoModels lifecycle', () => {
       );
     }
   });
+
+  it('switchTo guards against a disposed model in the cache', () => {
+    // Regression for "switching to a tab whose Monaco model was disposed
+    // externally blanks the editor". ensureModel re-creates a disposed
+    // model, but switchTo can be called directly from the public surface
+    // without going through ensureModel — and editor.setModel on a
+    // disposed model throws silently inside Monaco, leaving the editor
+    // blank with no error.
+    //
+    // The fix: in switchTo, if the cached model.isDisposed(), drop it
+    // from modelsRef and bail. Next ensureModel re-creates it cleanly.
+    // Pin both halves of the contract.
+    const switchToBlockMatch = source.match(/const switchTo\s*=\s*\([^)]*\)\s*=>\s*\{([\s\S]*?)\n\s*\};/);
+    assert.ok(switchToBlockMatch, 'expected a `const switchTo = (...) => { ... };` declaration');
+    const body = switchToBlockMatch![1];
+
+    assert.match(
+      body,
+      /model\s*&&\s*model\.isDisposed\(\)/,
+      'switchTo must check `model && model.isDisposed()` before handing the model to editor.setModel',
+    );
+    assert.match(
+      body,
+      /modelsRef\.current\.delete\(filename\)/,
+      'switchTo must `modelsRef.current.delete(filename)` when the cached model is disposed, so the next ensureModel re-creates it cleanly',
+    );
+  });
 });
