@@ -68,6 +68,30 @@ inline void emit_test_event(const char* name, const char* status, const std::str
         else if (c == '\n') escaped += ' ';
         else escaped += c;
     }
+    // Break any `>>>` run inside the message so it can't terminate the
+    // sentinel early. The parser at api/src/execution/sentinel.ts
+    // matches with a non-greedy regex anchored on a literal `>>>` close
+    // marker, and parseKv treats anything before that marker as the
+    // sentinel body. An assertion message like
+    //   "expected x >>> 3, got 5"
+    // would otherwise produce
+    //   <<<POTD-TEST name="foo" status=fail message="expected x >>> 3, got 5">>>
+    // which the regex truncates at the FIRST `>>>` — yielding a TEST
+    // event with message="expected x " and leaking ` 3, got 5">>>` into
+    // the user's output panel via the inline-strip pass. Insert a space
+    // between the 2nd and 3rd `>` so the visible message still reads
+    // as three `>` characters in sequence but the parser's close marker
+    // can no longer latch onto it. Single-` >` and `>>` runs are left
+    // intact (the parser already handles them — see the sentinel
+    // header comment "Body can contain `>` ... but cannot contain the
+    // literal terminator `>>>`").
+    {
+        size_t pos = 0;
+        while ((pos = escaped.find(">>>", pos)) != std::string::npos) {
+            escaped.replace(pos, 3, ">> >");
+            pos += 4;
+        }
+    }
     if (message.empty()) {
         std::printf("<<<POTD-TEST name=\"%s\" status=%s>>>\n", name, status);
     } else {
