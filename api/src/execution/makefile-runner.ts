@@ -94,7 +94,22 @@ export async function runMakefile(
     emit({ kind: 'run-end', exitCode: runResult.exitCode, killedByTimeout: runResult.killedByTimeout });
     return { passed, total, exitCode: runResult.exitCode };
   } finally {
-    fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    // Await the cleanup so the runMakefile promise doesn't resolve while
+    // the tmpdir is still on disk. The old fire-and-forget shape was a
+    // /tmp leak waiting to happen:
+    //   - The HTTP response and the SSE stream both completed and the
+    //     enclosing async function resolved before fs.promises.rm flushed.
+    //   - If the Node process took a SIGTERM (graceful redeploy) or
+    //     SIGKILL (OOM) in the gap between resolve and rm completion, the
+    //     dir leaked permanently. macOS reliably clears /tmp on boot but
+    //     long-running Linux containers don't, and under sustained load
+    //     `/tmp/potd-*` directories briefly accumulated hundreds-deep
+    //     between request finish and rm flush.
+    //   - It also broke "process exit signals tmpdir cleanup" assumptions
+    //     for any teardown wrapper layered on top.
+    // The .catch(() => {}) stays — rm failures shouldn't mask the
+    // original error that's already escaping through the finally.
+    await fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
