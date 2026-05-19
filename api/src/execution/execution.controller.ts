@@ -14,6 +14,19 @@ import { ExecutionService } from './execution.service.js';
 import { InFlightRegistry } from './in-flight.js';
 import { RunBodyDto } from './run-body.dto.js';
 import type { StreamEvent } from './event-emitter.js';
+import { computeCorsOrigins } from '../common/cors-origins.js';
+
+// Resolve the CORS allowlist once at module load. The /run and /test
+// handlers below write to `res.raw` directly so they can stream SSE,
+// which bypasses @fastify/cors's reply abstraction — the plugin's
+// onSend hook never fires for raw-stream bodies. Without this manual
+// check the controller used to echo `req.headers.origin` straight back
+// into Access-Control-Allow-Origin with Access-Control-Allow-Credentials:
+// true, defeating the global allowlist for the single most sensitive
+// endpoint in the app (the one that compiles and runs user C++). Cache
+// in a Set for O(1) lookups; the list is small but the check runs once
+// per SSE handshake, and every request shouldn't re-parse env vars.
+const ALLOWED_ORIGINS = new Set(computeCorsOrigins(process.env));
 
 @ApiTags('problems')
 @Controller('problems')
@@ -96,7 +109,19 @@ export class ExecutionController {
     raw.setHeader('Cache-Control', 'no-cache, no-transform');
     raw.setHeader('Connection', 'keep-alive');
     raw.setHeader('X-Accel-Buffering', 'no');
-    if (origin) {
+    // Validate the request origin against the same allowlist
+    // @fastify/cors uses in main.ts. Pre-fix this block echoed
+    // req.headers.origin straight back into Access-Control-Allow-Origin
+    // — meaning a page on https://evil.example.com could open a
+    // credentialed EventSource to /api/problems/:id/run and read the
+    // streamed compile output. The plugin-registered onSend hook does
+    // NOT fire for raw-stream bodies because the SSE handler bypasses
+    // res.send(); the allowlist therefore has to be checked here too.
+    // On an unknown origin we just don't set the header — the browser
+    // then blocks the response per the CORS spec; we don't 403 because
+    // a same-origin or non-browser client (curl, internal health probe)
+    // shouldn't need the header at all.
+    if (origin && ALLOWED_ORIGINS.has(origin)) {
       raw.setHeader('Access-Control-Allow-Origin', origin);
       raw.setHeader('Access-Control-Allow-Credentials', 'true');
     }

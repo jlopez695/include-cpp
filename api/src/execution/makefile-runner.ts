@@ -48,7 +48,17 @@ export async function runMakefile(
       CXX: TOOLCHAIN.ccache ? 'ccache c++' : 'c++',
       CC: TOOLCHAIN.ccache ? 'ccache cc' : 'cc',
       SHARED_INCLUDE: SHARED_INCLUDE_DIR,
-      CXXFLAGS: `${process.env.CXXFLAGS ?? ''} -I${SHARED_INCLUDE_DIR}`.trim(),
+      // Quote the include path. CXXFLAGS is passed via the Makefile to
+      // `$(CXX) $(CXXFLAGS) ...` under bash, and an unquoted -I path
+      // word-splits on whitespace if SHARED_INCLUDE_DIR contains spaces
+      // (e.g. a deploy with PROBLEMS_DIR=/Users/jacoblo/My Drive/225POTD/
+      // problems — Google Drive sync paths really do look like this).
+      // The compile would then fail with a confusing "no input files"
+      // because `c++ -I/Users/jacoblo/My Drive/...` reads "Drive/..." as
+      // a positional source argument. The cmake path already quotes
+      // through `-S "${srcDir}" -B "${buildDir}"`; this is the symmetric
+      // gap on the makefile side.
+      CXXFLAGS: `${process.env.CXXFLAGS ?? ''} -I"${SHARED_INCLUDE_DIR}"`.trim(),
     };
 
     // Makefile `test` target both compiles and runs; `make` (default) only
@@ -122,9 +132,19 @@ async function copyDir(src: string, dest: string, exclude: Set<string>): Promise
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) {
       await copyDir(srcPath, destPath, exclude);
-    } else {
+    } else if (entry.isFile()) {
       await fs.promises.copyFile(srcPath, destPath);
     }
+    // symlinks and other special entries (sockets, fifos, char/block
+    // devices) are intentionally skipped. The pre-fix branch fell
+    // through to fs.copyFile on anything that wasn't a directory, and
+    // copyFile *follows* symlinks: a contributor-poisoned PR that
+    // landed `problems/POTDxx/tests/grader.cpp -> /etc/passwd` would
+    // have copied the target's contents into the runner's tmpdir,
+    // where the next compile step could read host secrets via a
+    // crafted `#include`. The cmake-runner's mirrorDir does the same
+    // file/directory-only filter for exactly this reason; the
+    // makefile-runner was the asymmetric gap.
   }
 }
 
@@ -153,6 +173,18 @@ export function dispatchStdout(
   if (clean) emit({ kind: 'stdout', data: clean });
 }
 
+// Per-stream cap on the in-memory accumulator that holds bytes between
+// newlines (the line-buffered sentinel parser's lookback window). NOT
+// a cap on total run output — total bytes are already bounded by
+// ulimit -f in resource-limits.ts. The pre-cap accumulator was a real
+// OOM vector: a student program that does `while(1) std::cout << 'x';`
+// with no newline accreted directly into V8's heap until the Node
+// process hit --max-old-space-size and crashed, taking down ALL
+// concurrent runs (not just the offender's). The matching stderr side
+// got capped at 64 KB in commit 132ac77 inside the grader harness;
+// this is the symmetric fix on the runner-side stdout path.
+const MAX_TAIL_BYTES = 256 * 1024;
+
 function pipeChild(
   child: import('node:child_process').ChildProcess,
   emit: StreamCallback,
@@ -163,6 +195,20 @@ function pipeChild(
 
   const consumeStdout = (chunk: string) => {
     stdoutTail += chunk;
+    // If the accumulator outgrew the cap with no newline in sight,
+    // the buffered text cannot become a sentinel anyway (sentinels
+    // are line-bounded), so flush it as raw stdout and reset. The
+    // user still sees their output streamed; we just stop holding
+    // it indefinitely waiting for a `\n` that may never come.
+    // Done as a while-loop so a single huge chunk that's a multiple
+    // of MAX_TAIL_BYTES is flushed in cap-sized slices rather than
+    // re-entering this branch on the next chunk.
+    while (stdoutTail.length > MAX_TAIL_BYTES) {
+      const flushTo = MAX_TAIL_BYTES;
+      const flushChunk = stdoutTail.slice(0, flushTo);
+      stdoutTail = stdoutTail.slice(flushTo);
+      emit({ kind: 'stdout', data: flushChunk });
+    }
     const lastNewline = stdoutTail.lastIndexOf('\n');
     if (lastNewline < 0) return;
     const ready = stdoutTail.slice(0, lastNewline + 1);

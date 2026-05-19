@@ -55,8 +55,19 @@ export class ProblemsService implements OnModuleInit {
         summaries.push({ id, title: meta.title });
       } catch (err) {
         skipped++;
+        // Sanitize the id before interpolating into the log line. `id`
+        // is the directory name from fs.readdirSync(PROBLEMS_DIR) and
+        // macOS will happily accept a directory name containing CR or
+        // LF. Without this strip, a poisoned PR (or a misconfigured
+        // deploy that mounts an attacker-controlled volume) could
+        // create `problems/POTD0\nFAKE: ATTACK` and fabricate an extra
+        // log line. No automation consumes warn logs today, but the
+        // fix is cheap and matches the boundary-sanitization stance
+        // we took with meta.json path traversal (commit 0345b65) —
+        // treat anything that comes off disk as hostile.
+        const safeId = id.replace(/[\r\n]/g, '_');
         this.logger.warn(
-          `Skipping problem '${id}' during cache population: ${err instanceof Error ? err.message : String(err)}`,
+          `Skipping problem '${safeId}' during cache population: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }

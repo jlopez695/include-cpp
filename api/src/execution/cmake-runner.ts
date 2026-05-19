@@ -135,6 +135,27 @@ export async function runCmake(
     exitCode = ctestResult.exitCode;
 
     if (fs.existsSync(junitPath)) {
+      // Cap the JUnit XML we'll readFile+parse. fast-xml-parser holds
+      // the whole document plus its parse tree in memory; a multi-GB
+      // results.xml (rare but reachable — a misconfigured Catch2
+      // reporter that logs every assertion + a long-running suite +
+      // ctest's per-test XML wrapping can compound) would push the
+      // Node process past --max-old-space-size and crash. The default
+      // is overcommitted for a results document: real Catch2 output
+      // for a CS 225 problem clocks in well under 100 KB; 10 MB is
+      // already 100× headroom. On overflow, surface a single stderr
+      // event so the user sees *why* the result count is 0 instead
+      // of having the parse silently swallow it.
+      const PARSE_MAX_BYTES = 10 * 1024 * 1024;
+      const junitStat = await fs.promises.stat(junitPath);
+      if (junitStat.size > PARSE_MAX_BYTES) {
+        emit({
+          kind: 'stderr',
+          data: `[potd] ctest produced a ${junitStat.size}-byte results.xml; skipping parse (cap ${PARSE_MAX_BYTES}). No per-test results available for this run.\n`,
+        });
+        emit({ kind: 'run-end', exitCode, killedByTimeout: ctestResult.killedByTimeout });
+        return { passed: 0, total: 0, exitCode };
+      }
       const parsed = parseJUnit(await fs.promises.readFile(junitPath, 'utf8'));
       passed = parsed.passed;
       total = parsed.total;

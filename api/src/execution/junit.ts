@@ -40,7 +40,24 @@ export interface JUnitResult {
  * problem be marked solved when no real assertion has actually succeeded.
  */
 export function parseJUnit(xml: string): JUnitResult {
-  const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+  // `processEntities: false` disables XML entity substitution at the
+  // parser layer. fast-xml-parser's defaults don't fetch DOCTYPE-
+  // referenced external entities (no XXE), but they DO expand
+  // internally-declared entities — and a maliciously-shaped JUnit
+  // file ("billion laughs") could chain those to blow up memory in
+  // O(2^n). ctest doesn't emit DOCTYPEs in real life, so disabling
+  // entity processing has no functional cost. cmake-runner.ts also
+  // caps the FILE SIZE before this is called (PARSE_MAX_BYTES) —
+  // these are belt-and-suspenders: the size cap handles plain bloat,
+  // the entity flag handles structural amplification.
+  // `ignoreDeclaration: true` drops a leading `<?xml ...?>` so it
+  // doesn't materialize as a phantom child under doc.
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '@_',
+    ignoreDeclaration: true,
+    processEntities: false,
+  });
   let doc: any;
   try {
     doc = parser.parse(xml);
