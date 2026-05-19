@@ -548,10 +548,52 @@ export function loadUiState<T>(key: string, fallback: T): T {
   const raw = safeGetItem(`potd:ui:${key}`);
   if (!raw) return fallback;
   try {
-    return JSON.parse(raw) as T;
+    const parsed: unknown = JSON.parse(raw);
+    // The old `JSON.parse(raw) as T` was a compile-time lie: at runtime
+    // the parsed value was whatever was in localStorage, and the only
+    // escape back to `fallback` was a JSON.parse exception. Anything that
+    // parsed successfully — even with the wrong shape — flowed straight
+    // through the cast.
+    //
+    // Realistic corruption sources are the same set as every other entry
+    // in this file: a devtools edit, a clobbering extension, a half-
+    // written value from a tab killed mid-setItem, a leftover from an
+    // older build whose UI state shape has since changed. With the cast
+    // unchecked, the wrong-type value reached the caller as the wrong
+    // type — useResizable's `Math.max(min, Math.min(max, val))` coerced
+    // a stored `"hello"` to NaN and the panel collapsed to a NaN-pixel
+    // size, recoverable only by manually clearing localStorage because
+    // every subsequent mouseup wrote the post-drag size back through
+    // the same lying load.
+    //
+    // Validate the parsed value's *runtime shape* against the fallback
+    // before returning it. The shape match is intentionally shallow:
+    // typeof primitives, Array.isArray for arrays, object-ish for the
+    // rest. Deep element validation belongs at the call site (the
+    // bookmarks path uses readStringArray for exactly this reason).
+    if (shapeMatches(parsed, fallback)) return parsed as T;
+    return fallback;
   } catch {
     return fallback;
   }
+}
+
+function shapeMatches(parsed: unknown, fallback: unknown): boolean {
+  // Either side being null is decided by strict equality — a stored JSON
+  // `null` must not be accepted when the caller's fallback is an object
+  // or any primitive (typeof null === 'object' would let it pass an
+  // unguarded typeof check). Two nulls match, anything else with one
+  // null side doesn't.
+  if (parsed === null || fallback === null) return parsed === fallback;
+  // Arrays vs plain objects must not be conflated. typeof [] === 'object',
+  // so without the explicit Array.isArray pair, a stored array would
+  // pass through when the caller wanted `{ ... }` and a stored object
+  // would pass through when the caller wanted `[ ... ]`.
+  if (Array.isArray(fallback)) return Array.isArray(parsed);
+  if (Array.isArray(parsed)) return false;
+  // Primitives and plain objects: typeof comparison is sufficient now
+  // that null and arrays have been ruled out.
+  return typeof parsed === typeof fallback;
 }
 
 export function saveUiState<T>(key: string, value: T): void {
