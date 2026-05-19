@@ -523,8 +523,17 @@ export function loadBestResult(problemId: string): BestResult | null {
     if (
       parsed !== null &&
       typeof parsed === 'object' &&
-      typeof (parsed as BestResult).passed === 'number' &&
-      typeof (parsed as BestResult).total === 'number'
+      // Number.isFinite, not typeof === 'number'. The previous guard let
+      // Infinity through (typeof Infinity === 'number' is true), and would
+      // have let NaN through too if it ever arrived in-memory — typeof NaN
+      // is also 'number'. JSON.parse can produce Infinity from a literal
+      // like 1e9999 (manual devtools edit, an extension's bad write); the
+      // old code returned `{passed: Infinity, total: 5}` to the caller and
+      // every subsequent comparison (existing.passed >= passed) became
+      // unbeatable, so the user's best-result number froze at infinity
+      // and could not be re-overwritten by any real solve.
+      Number.isFinite((parsed as BestResult).passed) &&
+      Number.isFinite((parsed as BestResult).total)
     ) {
       return parsed as BestResult;
     }
@@ -540,6 +549,18 @@ export function loadBestResult(problemId: string): BestResult | null {
  */
 export function saveBestResult(problemId: string, passed: number, total: number): boolean {
   if (typeof window === 'undefined') return false;
+  // Reject non-finite inputs *before* the comparison or the write. The
+  // destructive case the test suite pins: an upstream NaN arrives, the
+  // existing valid entry passes the `existing.passed >= NaN` check as
+  // false (NaN compares unequal to everything), and the writer happily
+  // emits JSON.stringify({passed: NaN, total: 5}) → '{"passed":null,...}'.
+  // That null-payload write *clobbers* the previously-correct entry with
+  // an unrecoverable shape, and loadBestResult then returns null forever
+  // — the user's actual best result is gone with no error surfaced.
+  // Refusing the write here is strictly safer than the old behavior:
+  // a non-finite input was never a legitimate "best result" anyway, so
+  // dropping it on the floor preserves whatever good data already exists.
+  if (!Number.isFinite(passed) || !Number.isFinite(total)) return false;
   const existing = loadBestResult(problemId);
   if (existing && existing.passed >= passed && existing.total === total) return false;
   return safeSetItem(`potd:best:${problemId}`, JSON.stringify({ passed, total }));
