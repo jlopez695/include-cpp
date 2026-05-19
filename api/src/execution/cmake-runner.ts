@@ -315,8 +315,21 @@ export async function runExecutable(
  * If CTestTestfile.cmake is missing (because the problem's CMakeLists.txt
  * doesn't call enable_testing()), generate one that includes all
  * catch_discover_tests output files (*_include.cmake).
+ *
+ * CTest reads include() paths relative to the file's own directory. The
+ * generated CTestTestfile.cmake lives in buildDir, and so do every
+ * `*_include.cmake` we're pointing at, so a bare filename is the
+ * canonical form. The earlier implementation embedded the absolute
+ * path via `path.join(buildDir, f)`; that worked because buildDir is
+ * sanitized at construction, but coupling the generated file to its
+ * own location is fragile — moving the build tree (or a future bug
+ * that lets shell-metacharacter chars into buildDir) breaks every
+ * include. Use the bare filename.
+ *
+ * Exported so the regression test can pin the relative-path form
+ * without spinning up a real cmake build.
  */
-async function ensureCTestFile(buildDir: string): Promise<void> {
+export async function ensureCTestFile(buildDir: string): Promise<void> {
   const ctestFile = path.join(buildDir, 'CTestTestfile.cmake');
   if (fs.existsSync(ctestFile)) return;
 
@@ -324,7 +337,7 @@ async function ensureCTestFile(buildDir: string): Promise<void> {
   const includes = entries.filter(e => e.endsWith('_include.cmake'));
   if (includes.length === 0) return;
 
-  const lines = includes.map(f => `include("${path.join(buildDir, f)}")`);
+  const lines = includes.map(f => `include("${f}")`);
   await fs.promises.writeFile(ctestFile, lines.join('\n') + '\n');
 }
 
