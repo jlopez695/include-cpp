@@ -488,8 +488,15 @@ export function recordSolveDate(): void {
   const dates = readSolveDates();
   let mutated = false;
   if (!dates.includes(today)) {
-    dates.push(today);
-    safeSetItem('potd:solve-dates', JSON.stringify(dates));
+    // Immutable append — same reasoning as toggleBookmark above:
+    // build the next array, then write. Pre-fix the .push() mutated
+    // the local `dates` reference before the safeSetItem call, so
+    // a write failure (Safari Private Mode, quota exceeded) left
+    // the in-memory value optimistically toggled while localStorage
+    // still held the old value. Building a fresh array via spread
+    // keeps the read-side state untouched on write failure.
+    const next = [...dates, today];
+    safeSetItem('potd:solve-dates', JSON.stringify(next));
     mutated = true;
   }
   // Only notify when the underlying solve-dates set actually changed —
@@ -612,16 +619,30 @@ export function isBookmarked(problemId: string): boolean {
 /** Toggle bookmark for a problem. Returns the new bookmarked state. */
 export function toggleBookmark(problemId: string): boolean {
   if (typeof window === 'undefined') return false;
+  // Build the next array immutably instead of splice/push-then-write.
+  // The pre-fix shape mutated `ids` in place BEFORE the safeSetItem
+  // — and getBookmarkedIds returns a fresh array each call, so the
+  // mutation was technically local. But two failure modes follow
+  // from the in-place style anyway:
+  //   1. If safeSetItem returns false (Safari Private Mode, quota
+  //      exceeded), the in-memory `ids` is already mutated; the
+  //      caller's local reference would have a phantom toggle that
+  //      doesn't match localStorage truth. Building the next array
+  //      separately keeps the read-side state untouched on write
+  //      failure.
+  //   2. Mid-write the array shape was "almost the right state but
+  //      not yet stringified," so any concurrent storage-event
+  //      listener that observed the next read between mutate and
+  //      write would see drift between the indexOf-based decision
+  //      and the persisted value. Immutable build → write resolves
+  //      that race window.
   const ids = getBookmarkedIds();
   const idx = ids.indexOf(problemId);
-  if (idx >= 0) {
-    ids.splice(idx, 1);
-    safeSetItem(BOOKMARKS_KEY, JSON.stringify(ids));
-    return false;
-  }
-  ids.push(problemId);
-  safeSetItem(BOOKMARKS_KEY, JSON.stringify(ids));
-  return true;
+  const next = idx >= 0
+    ? ids.filter((_, i) => i !== idx)
+    : [...ids, problemId];
+  safeSetItem(BOOKMARKS_KEY, JSON.stringify(next));
+  return idx < 0;
 }
 
 /* ── UI state persistence ── */

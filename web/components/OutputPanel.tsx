@@ -141,7 +141,16 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests, 
             {hasLines && (
               <div className={hasTests ? 'mb-3' : ''}>
                 {lines.map((line, i) => (
-                  <div key={i} className={`whitespace-pre-wrap break-words ${line.cls}`}>
+                  // Append-only is the common case for `lines`, so a
+                  // bare `key={i}` was functionally fine — but if the
+                  // parent ever resets/prepends, React reuses rows
+                  // against the wrong text. Compose the index with a
+                  // short text prefix as a cheap stable-enough key
+                  // without introducing a new id stream.
+                  <div
+                    key={`${i}-${line.text.slice(0, 16)}`}
+                    className={`whitespace-pre-wrap break-words ${line.cls}`}
+                  >
                     {line.text}
                   </div>
                 ))}
@@ -149,8 +158,17 @@ export function OutputPanel({ lines, testResults, label, summary, onRerunTests, 
             )}
             {hasTests && (
               <div className="flex flex-col gap-0.5">
-                {testResults.map((t, i) => (
-                  <TestResultRow key={i} result={t} />
+                {testResults.map(t => (
+                  // Key on the test NAME, not the array index. Pre-fix
+                  // a re-run that returned the tests in a different
+                  // order made React reuse the same TestResultRow
+                  // instances — and TestResultRow holds local state
+                  // (`expanded`) via useState. Index-keyed reuse left
+                  // the "expanded" flag on the wrong row when the
+                  // underlying result at that index changed. Sentinel
+                  // names and JUnit testcase @_names are unique per
+                  // suite, so `t.name` is a reliable identity key.
+                  <TestResultRow key={t.name} result={t} />
                 ))}
               </div>
             )}

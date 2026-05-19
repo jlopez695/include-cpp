@@ -94,9 +94,20 @@ export function ProblemDescription({ html }: ProblemDescriptionProps) {
   }, [html]);
 
   return (
+    // Intentionally no `key` here. The previous shape — key={html.slice(0, 50)}
+    // — was a remount-on-html-change trick that misfired on prefix-collision:
+    // two problems whose markdown starts with the same 50 characters
+    // (very common when problems share an intro template like
+    // `# Problem ...\n\nWrite a function that ...`) got the same key, React
+    // skipped the remount, the [html] effect ran cleanup against the stale
+    // DOM (already replaced by dangerouslySetInnerHTML) and wired buttons
+    // onto the new DOM — leaving the old buttons orphaned and producing
+    // duplicate copy buttons under certain navigation orders. The parent
+    // route already remounts this component when the problem id changes
+    // (web/app/problems/[id]/page.tsx); the [html] dependency on the
+    // effect handles same-component html updates without needing a key.
     <div
       ref={ref}
-      key={html.slice(0, 50)}
       className="flex-1 overflow-y-auto px-6 pt-[22px] pb-8 prose-potd animate-fade-in"
       role="article"
       dangerouslySetInnerHTML={{ __html: html }}
