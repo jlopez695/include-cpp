@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -132,13 +133,38 @@ inline ChildResult run_in_child(const Test& t) {
     std::string captured;
     char buf[4096];
     ssize_t n;
-    while ((n = read(pipefd[0], buf, sizeof(buf))) > 0) {
-        captured.append(buf, static_cast<size_t>(n));
+    // EINTR-retry loop. A signal arriving mid-read returns -1 with
+    // errno == EINTR — the old `while (n > 0)` shape treated that the
+    // same as end-of-stream, silently truncating the child's stderr
+    // and producing an empty/partial assertion message back to the
+    // user. SIGCHLD from a sibling test is the most common interrupter
+    // (this runs from inside potd::run_all which is forking children
+    // back-to-back), but any signal the OS delivers to the grader
+    // process can trip it. Retry on EINTR and only terminate on real
+    // EOF (n == 0) or a non-EINTR error.
+    for (;;) {
+        n = read(pipefd[0], buf, sizeof(buf));
+        if (n > 0) { captured.append(buf, static_cast<size_t>(n)); continue; }
+        if (n == -1 && errno == EINTR) continue;
+        break;
     }
     close(pipefd[0]);
 
     int status = 0;
-    waitpid(pid, &status, 0);
+    pid_t w;
+    // EINTR-retry loop. A signal arriving mid-waitpid returns -1
+    // with errno == EINTR and leaves `status` at its initialized 0.
+    // Falling through to WIFEXITED(0) then returns `true` (since
+    // ((0 & 0x7f) == 0) is true) with WEXITSTATUS(0) == 0 — i.e. a
+    // test that may have actually crashed (or simply was never
+    // reaped) gets silently scored as a PASS. That's the worst
+    // failure mode in an autograder: students see a green checkmark
+    // for broken code. Retry on EINTR; bail with a crash-shaped
+    // result only on a non-EINTR error.
+    do { w = waitpid(pid, &status, 0); } while (w == -1 && errno == EINTR);
+    if (w == -1) {
+        return {false, "waitpid() failed", true};
+    }
 
     if (WIFEXITED(status)) {
         const int code = WEXITSTATUS(status);
