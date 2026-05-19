@@ -134,6 +134,28 @@ export function loadCode(problemId: string, filename: string): string | null {
 const SUPABASE_SAVE_DEBOUNCE_MS = 500;
 const pendingSupabaseSaves = new Map<string, ReturnType<typeof setTimeout>>();
 
+// Shared rejection handler for the outer `getClient()` promise in each
+// of the four background-sync sites below. getClient() itself can reject
+// in two distinct ways the inner .then(({ error }) => …) handler does NOT
+// catch:
+//   - the dynamic `import('@supabase/ssr')` chunk fails to load (network
+//     blip mid-session, a CSP that blocks the chunk URL, sandboxed iframe
+//     with `allow-scripts` stripped from the parent),
+//   - createBrowserClient(url, key) throws synchronously inside that
+//     dynamic import callback (malformed env vars rolled out together,
+//     for example).
+// Without a `.catch` on the outer chain, those rejections escape `void`
+// and surface as `unhandledrejection` on window — visible to anyone
+// listening for them (Sentry, the dev console, error overlays in
+// development). The Supabase sync is fire-and-forget and localStorage
+// is the source of truth, so the right contract here matches the inner
+// handler's: drop a console.warn breadcrumb and otherwise carry on.
+// Pulled into a named helper rather than four inline arrow fns so the
+// reason for the catch is documented exactly once.
+function warnClientUnavailable(err: unknown): void {
+  console.warn('[supabase] client unavailable, background sync skipped:', err);
+}
+
 function cancelPendingSupabaseSave(problemId: string, filename: string): void {
   const key = `${problemId}:${filename}`;
   const pending = pendingSupabaseSaves.get(key);
@@ -151,30 +173,32 @@ function scheduleSupabaseSave(problemId: string, filename: string, content: stri
     key,
     setTimeout(() => {
       pendingSupabaseSaves.delete(key);
-      void getClient().then(sb => {
-        if (!sb) return;
-        // PostgrestBuilder is lazy: the HTTP request only fires when
-        // .then() (or await) is invoked. A bare `void sb.from(...).upsert(...)`
-        // constructs the builder and discards it without triggering the
-        // fetch — so the upsert silently doesn't happen. Always terminate
-        // the chain with .then so the request actually goes out, and
-        // surface any { error } so a misconfigured RLS / expired session
-        // leaves a console breadcrumb instead of looking like a successful
-        // local save.
-        sb.from('user_code')
-          .upsert(
-            {
-              user_id: getUserId(),
-              problem_id: problemId,
-              filename,
-              content,
-            },
-            { onConflict: 'user_id,problem_id,filename' },
-          )
-          .then(({ error }) => {
-            if (error) console.warn('[supabase] user_code upsert failed:', error);
-          });
-      });
+      void getClient()
+        .then(sb => {
+          if (!sb) return;
+          // PostgrestBuilder is lazy: the HTTP request only fires when
+          // .then() (or await) is invoked. A bare `void sb.from(...).upsert(...)`
+          // constructs the builder and discards it without triggering the
+          // fetch — so the upsert silently doesn't happen. Always terminate
+          // the chain with .then so the request actually goes out, and
+          // surface any { error } so a misconfigured RLS / expired session
+          // leaves a console breadcrumb instead of looking like a successful
+          // local save.
+          sb.from('user_code')
+            .upsert(
+              {
+                user_id: getUserId(),
+                problem_id: problemId,
+                filename,
+                content,
+              },
+              { onConflict: 'user_id,problem_id,filename' },
+            )
+            .then(({ error }) => {
+              if (error) console.warn('[supabase] user_code upsert failed:', error);
+            });
+        })
+        .catch(warnClientUnavailable);
     }, SUPABASE_SAVE_DEBOUNCE_MS),
   );
 }
@@ -198,17 +222,19 @@ function scheduleSupabaseDelete(problemId: string, filename: string): void {
     key,
     setTimeout(() => {
       pendingSupabaseSaves.delete(key);
-      void getClient().then(sb => {
-        if (!sb) return;
-        sb.from('user_code')
-          .delete()
-          .eq('user_id', getUserId())
-          .eq('problem_id', problemId)
-          .eq('filename', filename)
-          .then(({ error }) => {
-            if (error) console.warn('[supabase] user_code delete failed:', error);
-          });
-      });
+      void getClient()
+        .then(sb => {
+          if (!sb) return;
+          sb.from('user_code')
+            .delete()
+            .eq('user_id', getUserId())
+            .eq('problem_id', problemId)
+            .eq('filename', filename)
+            .then(({ error }) => {
+              if (error) console.warn('[supabase] user_code delete failed:', error);
+            });
+        })
+        .catch(warnClientUnavailable);
     }, SUPABASE_SAVE_DEBOUNCE_MS),
   );
 }
@@ -256,16 +282,18 @@ export function clearCode(problemId: string, filenames: string[]): void {
     cancelPendingSupabaseSave(problemId, f);
   }
   if (supabaseEnabled) {
-    void getClient().then(sb => {
-      if (!sb) return;
-      sb.from('user_code')
-        .delete()
-        .eq('user_id', getUserId())
-        .eq('problem_id', problemId)
-        .then(({ error }) => {
-          if (error) console.warn('[supabase] user_code delete failed:', error);
-        });
-    });
+    void getClient()
+      .then(sb => {
+        if (!sb) return;
+        sb.from('user_code')
+          .delete()
+          .eq('user_id', getUserId())
+          .eq('problem_id', problemId)
+          .then(({ error }) => {
+            if (error) console.warn('[supabase] user_code delete failed:', error);
+          });
+      })
+      .catch(warnClientUnavailable);
   }
 }
 
@@ -369,33 +397,35 @@ export function saveStatus(
     // is added, and an explicit row also wastes a write for the most
     // common transition (no row → no row → no row when the user opens
     // a fresh problem, fails its tests once, then never solves it).
-    void getClient().then(sb => {
-      if (!sb) return;
-      if (isUnsolved) {
-        sb.from('problem_status')
-          .delete()
-          .eq('user_id', getUserId())
-          .eq('problem_id', problemId)
-          .then(({ error }) => {
-            if (error) console.warn('[supabase] problem_status delete failed:', error);
-          });
-      } else {
-        sb.from('problem_status')
-          .upsert(
-            {
-              user_id: getUserId(),
-              problem_id: problemId,
-              status,
-              passed,
-              total,
-            },
-            { onConflict: 'user_id,problem_id' },
-          )
-          .then(({ error }) => {
-            if (error) console.warn('[supabase] problem_status upsert failed:', error);
-          });
-      }
-    });
+    void getClient()
+      .then(sb => {
+        if (!sb) return;
+        if (isUnsolved) {
+          sb.from('problem_status')
+            .delete()
+            .eq('user_id', getUserId())
+            .eq('problem_id', problemId)
+            .then(({ error }) => {
+              if (error) console.warn('[supabase] problem_status delete failed:', error);
+            });
+        } else {
+          sb.from('problem_status')
+            .upsert(
+              {
+                user_id: getUserId(),
+                problem_id: problemId,
+                status,
+                passed,
+                total,
+              },
+              { onConflict: 'user_id,problem_id' },
+            )
+            .then(({ error }) => {
+              if (error) console.warn('[supabase] problem_status upsert failed:', error);
+            });
+        }
+      })
+      .catch(warnClientUnavailable);
   }
 
   // Notify in-tab listeners (Sidebar, TopBar) so the visible status dot
