@@ -427,10 +427,35 @@ function readStringArray(key: string): string[] {
   }
 }
 
+// Strict YYYY-MM-DD shape — applied to every entry surfaced from
+// potd:solve-dates before it can reach calendarDaysApart below.
+// readStringArray already filtered non-strings, but accepted any string
+// that JSON.parse produced — including a half-written value, a clobbering
+// extension's payload, a 'YYYY-MM' truncation, or a leftover from a build
+// that stored dates in a different shape. Any of those reaching
+// calendarDaysApart returned NaN; NaN flowed through subtraction and
+// Math.round, then the `=== 1` check in getStreak's loop failed and the
+// streak silently truncated. Match the exact shape recordSolveDate writes
+// (`toISOString().slice(0, 10)`) so the heal is symmetric — a date that
+// the writer would emit must be the only kind of date the reader trusts.
+const VALID_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function readSolveDates(): string[] {
+  return readStringArray('potd:solve-dates').filter(d => VALID_DATE_RE.test(d));
+}
+
 export function recordSolveDate(): void {
   if (typeof window === 'undefined') return;
   const today = new Date().toISOString().slice(0, 10);
-  const dates = readStringArray('potd:solve-dates');
+  // Read through the validating filter so any accumulated garbage gets
+  // *healed* on the next solve instead of persisting indefinitely. Without
+  // the heal, the visible streak would be correct (the read-side filter
+  // in getStreak handles that) but every subsequent recordSolveDate would
+  // write the garbage right back into the array — paying the filter cost
+  // forever and leaving the bad data one regex bug away from resurfacing.
+  // Same pattern as recordSolveDate's existing parse-error recovery
+  // (storage-corruption.spec.ts pins it for the JSON-parse case).
+  const dates = readSolveDates();
   let mutated = false;
   if (!dates.includes(today)) {
     dates.push(today);
@@ -459,7 +484,14 @@ function calendarDaysApart(a: string, b: string): number {
 
 export function getStreak(): number {
   if (typeof window === 'undefined') return 0;
-  const dates = readStringArray('potd:solve-dates');
+  // Read through the validating filter so a single corrupt entry doesn't
+  // truncate the streak. A garbage entry like "garbage" or "2026-13-45"
+  // produced NaN from calendarDaysApart's split('-').map(Number), and
+  // `NaN === 1` is false, so the loop broke at the first malformed
+  // neighbor — a user with one bad write between two good ones saw their
+  // 30-day streak collapse to whatever ran from `today` to the bad row.
+  // No error surfaced; the count just silently lied.
+  const dates = readSolveDates();
   if (dates.length === 0) return 0;
 
   const sorted = [...dates].sort().reverse();
