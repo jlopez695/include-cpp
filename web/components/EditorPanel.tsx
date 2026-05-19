@@ -119,6 +119,19 @@ export function EditorPanel({ editor, vimMode, onVimToggle }: EditorPanelProps) 
   // Cmd+Shift+D to toggle diff view
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Bail when ANY modal is on screen. The listener is bound to
+      // `window`, so it fires regardless of where focus lives — including
+      // inside an open Modal (KeyboardShortcuts, ProgressDashboard, or
+      // any future one). Pre-fix, typing Cmd+Shift+D inside a modal
+      // silently flipped diffMode on the editor BEHIND the modal; the
+      // user saw the side-by-side diff pane only after closing the
+      // modal, with no obvious cause. Modal.tsx renders its panel
+      // with `role="dialog" aria-modal="true"`, so a single querySelector
+      // is the cheapest correct check that stays in sync with the
+      // existing modal contract (no shared registry needed; any new
+      // modal that wants this protection just needs to keep the same
+      // aria attributes, which is required for a11y anyway).
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'd') {
         e.preventDefault();
         setDiffMode(prev => {
