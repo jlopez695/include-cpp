@@ -92,7 +92,20 @@ export function useSSE() {
               const event = JSON.parse(raw) as StreamEvent;
               dispatch(event, callbacks);
             } catch {
-              // Ignore malformed JSON
+              // Leave a breadcrumb instead of dropping silently. The
+              // old `// Ignore malformed JSON` discarded the frame with
+              // zero observability — a user reporting "my test results
+              // are missing rows" had no way to correlate it to a bad
+              // frame on the wire, and the recent parseSentinels NaN
+              // audit (parseSentinels: coerce non-finite result counts
+              // to 0 instead of letting NaN poison the SSE stream)
+              // showed how invisible boundary-level corruption stays
+              // until a breadcrumb exists. The warn includes both the
+              // [useSSE] tag (so operators can grep) and the raw line
+              // (so the diff against the backend's contract is one
+              // copy-paste away). Flow is unchanged — the malformed
+              // frame is still skipped — but the silent path is gone.
+              console.warn('[useSSE] malformed event:', raw);
             }
             currentEvent = '';
           }
