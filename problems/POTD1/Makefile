@@ -1,7 +1,7 @@
 EXENAME = main
 
-CXX = clang++
-CXXFLAGS = -std=c++0x -g -O0 -Wall -Wextra
+CXX ?= clang++
+CXXFLAGS ?= -std=c++0x -g -O0 -Wall -Wextra
 
 .PHONY: all
 all : $(EXENAME)
