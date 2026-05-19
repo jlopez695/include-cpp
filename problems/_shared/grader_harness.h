@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -157,6 +158,25 @@ inline ChildResult run_in_child(const Test& t) {
     std::string captured;
     char buf[4096];
     ssize_t n;
+    // Cap the captured stderr at 64KB. The pre-cap loop appended every
+    // byte the child wrote to stderr into a single std::string — under
+    // the parent grader's RLIMIT_AS = 512MB (spawnLimited's ulimit -v
+    // 524288) a runaway test that loops printing into stderr would
+    // eventually hit std::bad_alloc inside std::string::append. The
+    // read() loop runs OUTSIDE the run_in_child try block, so the
+    // bad_alloc escapes, std::terminate aborts the entire grader
+    // process before the result sentinel is emitted, and the SSE
+    // `done` event lands with `{passed:0, total:0}` — user sees "0/0
+    // tests passed" with an empty output panel and no clue what
+    // happened. In practice the 30s wall timeout often fires first
+    // and SIGKILLs the grader to the same opaque effect. Capping
+    // keeps memory bounded, lets the test that crashed actually
+    // report its outcome, and preserves the most useful prefix of
+    // the child's stderr (assertion messages are short — the prefix
+    // is the part the user needs). Keep draining past the cap so
+    // the child doesn't SIGPIPE on its next write into the pipe.
+    static const size_t MAX_CAPTURED = 64 * 1024;
+    bool truncated = false;
     // EINTR-retry loop. A signal arriving mid-read returns -1 with
     // errno == EINTR — the old `while (n > 0)` shape treated that the
     // same as end-of-stream, silently truncating the child's stderr
@@ -168,10 +188,19 @@ inline ChildResult run_in_child(const Test& t) {
     // EOF (n == 0) or a non-EINTR error.
     for (;;) {
         n = read(pipefd[0], buf, sizeof(buf));
-        if (n > 0) { captured.append(buf, static_cast<size_t>(n)); continue; }
+        if (n > 0) {
+            if (captured.size() < MAX_CAPTURED) {
+                const size_t take = std::min(static_cast<size_t>(n),
+                                              MAX_CAPTURED - captured.size());
+                captured.append(buf, take);
+                if (captured.size() == MAX_CAPTURED) truncated = true;
+            }
+            continue;
+        }
         if (n == -1 && errno == EINTR) continue;
         break;
     }
+    if (truncated) captured += "\n[stderr truncated at 64KB]";
     close(pipefd[0]);
 
     int status = 0;
