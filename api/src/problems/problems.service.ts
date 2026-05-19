@@ -83,13 +83,28 @@ export class ProblemsService implements OnModuleInit {
     // points the operator at the offending file directly instead of just
     // saying "Unexpected token } in JSON at position N".
     const raw = fs.readFileSync(metaPath, 'utf8');
+    let parsed: unknown;
     try {
-      return JSON.parse(raw) as Meta;
+      parsed = JSON.parse(raw);
     } catch (err) {
       throw new Error(
         `Problem ${id}: meta.json is not valid JSON (${err instanceof Error ? err.message : String(err)})`,
       );
     }
+    // Validate the parsed shape *before* casting. The bare `as Meta` cast
+    // was a compile-time lie: any object that parsed would surface to
+    // callers as a Meta regardless of what was actually inside. The
+    // downstream consequence was bad: readDetailFromDisk's
+    // `for (const filename of meta.editableFiles)` iterates a string
+    // character-by-character if editableFiles was accidentally stored as
+    // a string ("main.cpp" instead of ["main.cpp"]), and the resulting
+    // ENOENT on 'm' surfaced to /problems/:id callers as an opaque 500
+    // with no problem id or field name in the message. A missing or
+    // wrong buildType produced an even more confusing failure further
+    // out at execution time. Validate here so every cache-miss path
+    // (populateCache, list, detail, readMeta) gets the same coherent
+    // error message naming the problem id and the offending field.
+    return validateMetaShape(parsed, id);
   }
 
   private readDetailFromDisk(id: string, preReadMeta?: Meta): ProblemDetail {
@@ -142,6 +157,47 @@ export class ProblemsService implements OnModuleInit {
     if (cached) return cached;
     return this.readDetailFromDisk(id);
   }
+}
+
+/**
+ * Validate a parsed meta.json against the Meta shape and return it
+ * typed. Throws a descriptive Error naming the problem id and the
+ * offending field on any mismatch. Centralized here so all callers of
+ * readMetaFromDisk get identical error shapes; the per-problem try/catch
+ * in populateCache then logs and skips, and the cache-miss path in
+ * detail() surfaces the same descriptive message to the HTTP layer.
+ *
+ * readOnlyFiles is intentionally optional even though the Meta type
+ * marks it required — readDetailFromDisk already does
+ * `meta.readOnlyFiles ?? []`, and real problems on disk exist that
+ * omit the field. Tightening it here would skip otherwise-valid
+ * problems at boot.
+ */
+function validateMetaShape(parsed: unknown, id: string): Meta {
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Problem ${id}: meta.json must be a JSON object`);
+  }
+  const m = parsed as Record<string, unknown>;
+  if (typeof m.title !== 'string') {
+    throw new Error(`Problem ${id}: meta.json field 'title' must be a string`);
+  }
+  if (m.buildType !== 'makefile' && m.buildType !== 'cmake') {
+    throw new Error(
+      `Problem ${id}: meta.json field 'buildType' must be 'makefile' or 'cmake' (got ${JSON.stringify(m.buildType)})`,
+    );
+  }
+  if (!Array.isArray(m.editableFiles) || !m.editableFiles.every(f => typeof f === 'string')) {
+    throw new Error(`Problem ${id}: meta.json field 'editableFiles' must be an array of strings`);
+  }
+  if (m.readOnlyFiles !== undefined) {
+    if (!Array.isArray(m.readOnlyFiles) || !m.readOnlyFiles.every(f => typeof f === 'string')) {
+      throw new Error(`Problem ${id}: meta.json field 'readOnlyFiles' must be an array of strings when present`);
+    }
+  }
+  if (typeof m.entrypoint !== 'string') {
+    throw new Error(`Problem ${id}: meta.json field 'entrypoint' must be a string`);
+  }
+  return parsed as Meta;
 }
 
 /**
