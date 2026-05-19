@@ -1,14 +1,5 @@
 import 'server-only';
 
-import { unified } from 'unified';
-import remarkParse from 'remark-parse';
-import remarkGfm from 'remark-gfm';
-import remarkRehype from 'remark-rehype';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeStringify from 'rehype-stringify';
-import cpp from 'highlight.js/lib/languages/cpp';
-import makefile from 'highlight.js/lib/languages/makefile';
-
 /**
  * Server-side markdown → HTML renderer. Runs at static-generation time
  * (or on the cached server render), so the client never pays for parsing
@@ -16,18 +7,12 @@ import makefile from 'highlight.js/lib/languages/makefile';
  * only; everything else falls back to plain <code>.
  *
  * The resulting HTML is rendered with dangerouslySetInnerHTML on the
- * client. That is safe here because problem.md content originates from
- * files in the repo (controlled, not user-submitted), and rehype-stringify
- * already escapes embedded HTML by default.
+ * client. Defense-in-depth (sanitize javascript: URLs, force
+ * rel="noopener noreferrer" on external links, etc.) lives in
+ * `markdown-pipeline.ts`; this file is the production entrypoint and
+ * carries the `import 'server-only'` marker that trips the build if a
+ * client component ever imports it. The pipeline itself is split out
+ * so it can be unit-tested without paying for Next.js's server-only
+ * runtime guard.
  */
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkRehype)
-  .use(rehypeHighlight, { languages: { cpp, makefile } })
-  .use(rehypeStringify);
-
-export async function renderMarkdown(md: string): Promise<string> {
-  const file = await processor.process(md);
-  return String(file);
-}
+export { renderMarkdown } from './markdown-pipeline.js';

@@ -147,6 +147,7 @@ describe('Performance configuration', () => {
   describe('Markdown pre-rendered server-side', () => {
     let descSource: string;
     let serverSource: string;
+    let pipelineSource: string;
 
     before(() => {
       descSource = fs.readFileSync(
@@ -155,6 +156,17 @@ describe('Performance configuration', () => {
       );
       serverSource = fs.readFileSync(
         path.join(import.meta.dirname, '..', 'lib', 'markdown-server.ts'),
+        'utf8',
+      );
+      // The actual remark/rehype pipeline lives in markdown-pipeline.ts
+      // so it can be unit-tested without paying for the `import
+      // 'server-only'` guard. markdown-server.ts is a thin re-export
+      // shell. The build-time perf invariants (cpp/makefile-only
+      // grammars, no react-markdown in the client bundle) now live in
+      // markdown-pipeline.ts; read both and route the assertions to
+      // the right file.
+      pipelineSource = fs.readFileSync(
+        path.join(import.meta.dirname, '..', 'lib', 'markdown-pipeline.ts'),
         'utf8',
       );
     });
@@ -172,18 +184,32 @@ describe('Performance configuration', () => {
       }
     });
 
-    it('server-side renderer is marked server-only', () => {
+    it('server-side renderer entrypoint is marked server-only', () => {
       assert.ok(/['"]server-only['"]/.test(serverSource),
-        'markdown-server.ts should import "server-only" to prevent client bundling');
+        'markdown-server.ts should import "server-only" to prevent client bundling — it is the production entrypoint that consumers import, even though the pipeline itself lives in markdown-pipeline.ts');
     });
 
-    it('server-side renderer restricts highlight.js to cpp + makefile', () => {
-      assert.ok(serverSource.includes('highlight.js/lib/languages/cpp'),
-        'should import cpp grammar specifically');
-      assert.ok(serverSource.includes('highlight.js/lib/languages/makefile'),
-        'should import makefile grammar specifically');
-      assert.ok(/languages:\s*\{\s*cpp\s*,\s*makefile\s*\}/.test(serverSource),
-        'rehypeHighlight should be configured with only cpp + makefile');
+    it('server-side renderer pipeline restricts highlight.js to cpp + makefile', () => {
+      // The grammar imports + rehypeHighlight config moved to
+      // markdown-pipeline.ts when the pipeline was split out for
+      // testability. Keep the perf invariant pinned by reading the
+      // pipeline file, not the thin server-only shell.
+      assert.ok(pipelineSource.includes('highlight.js/lib/languages/cpp'),
+        'markdown-pipeline.ts should import cpp grammar specifically');
+      assert.ok(pipelineSource.includes('highlight.js/lib/languages/makefile'),
+        'markdown-pipeline.ts should import makefile grammar specifically');
+      assert.ok(/languages:\s*\{\s*cpp\s*,\s*makefile\s*\}/.test(pipelineSource),
+        'rehypeHighlight in markdown-pipeline.ts should be configured with only cpp + makefile');
+    });
+
+    it('server-side renderer entrypoint re-exports renderMarkdown from the pipeline', () => {
+      // Pin the indirection so a future refactor can't accidentally
+      // inline the pipeline back into markdown-server.ts without
+      // updating the testability story.
+      assert.ok(
+        /export\s+\{\s*renderMarkdown\s*\}\s+from\s+['"]\.\/markdown-pipeline\.js['"]/.test(serverSource),
+        'markdown-server.ts should re-export renderMarkdown from ./markdown-pipeline.js so the pipeline stays testable',
+      );
     });
   });
 
