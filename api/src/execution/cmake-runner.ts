@@ -74,8 +74,17 @@ export async function runCmake(
     return { passed: 0, total: 0, exitCode: configureResult.exitCode };
   }
 
-  // Build
-  const build = spawnLimited(`cmake --build "${buildDir}" --parallel`, {
+  // Build. `--parallel` with no count defaults to the host's logical core
+  // count, which means two concurrent users on a Catch2-heavy problem
+  // (different userIds, different in-flight slots — the registry keys on
+  // user+problem, not problem alone) can spawn 2 * NCPU compile jobs and
+  // oversubscribe the box. Cap at 2 so a sibling run can coexist on a
+  // multi-core host without either run starving the other; the incremental
+  // Catch2 builds we actually run aren't compile-bound enough for a higher
+  // cap to be load-bearing. If a future operator needs to tune this, a
+  // POTD_CMAKE_PARALLEL env knob is the right next step; a literal 2 is
+  // fine for the current corpus.
+  const build = spawnLimited(`cmake --build "${buildDir}" --parallel 2`, {
     cwd: buildDir,
     env,
     limits: { cpuSeconds: 60, wallMs: 60_000 },
