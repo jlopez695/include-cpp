@@ -2,6 +2,7 @@ EXENAME = main
 
 CXX ?= clang++
 CXXFLAGS ?= -std=c++11 -g -O0 -Wall -Wextra
+SHARED_INCLUDE ?= ../_shared
 
 all : $(EXENAME)
 
@@ -16,7 +17,7 @@ Circle.o: Circle.h Circle.cpp
 
 .PHONY: clean test
 test: q4.cpp q4.h Circle.cpp Circle.h tests/grader.cpp
-	$(CXX) $(CXXFLAGS) q4.cpp Circle.cpp tests/grader.cpp -o test_runner
+	$(CXX) $(CXXFLAGS) -I$(SHARED_INCLUDE) q4.cpp Circle.cpp tests/grader.cpp -o test_runner
 	./test_runner
 	rm -f test_runner
 

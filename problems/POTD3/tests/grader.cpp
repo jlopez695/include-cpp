@@ -3,71 +3,79 @@
 #include <string>
 #include "../Circle.h"
 #include "../q4.h"
+#include "grader_harness.h"
 
-int passed = 0;
-int failed = 0;
+// Each capture_* helper redirects std::cout into a buffer, invokes the
+// student's function, and returns whatever was printed. The grader's job is
+// to verify (a) the function produces output and (b) the printed memory
+// address matches main's address (for pointer and reference) or differs
+// from it (for pass-by-value, since the value parameter lives on the
+// callee's stack).
 
-void check(const std::string& label, bool condition) {
-    if (condition) {
-        std::cout << "[PASS] " << label << "\n";
-        passed++;
-    } else {
-        std::cout << "[FAIL] " << label << "\n";
-        failed++;
-    }
-}
-
-std::string capture(void (*fn)(Circle), Circle c) {
+static std::string capture_value(Circle c) {
     std::ostringstream buf;
     std::streambuf* old = std::cout.rdbuf(buf.rdbuf());
-    fn(c);
+    pass_by_value(c);
     std::cout.rdbuf(old);
     return buf.str();
 }
 
-std::string capture_ptr(void (*fn)(Circle*), Circle* c) {
+static std::string capture_pointer(Circle* c) {
     std::ostringstream buf;
     std::streambuf* old = std::cout.rdbuf(buf.rdbuf());
-    fn(c);
+    pass_by_pointer(c);
     std::cout.rdbuf(old);
     return buf.str();
 }
 
-std::string capture_ref(void (*fn)(Circle&), Circle& c) {
+static std::string capture_ref(Circle& c) {
     std::ostringstream buf;
     std::streambuf* old = std::cout.rdbuf(buf.rdbuf());
-    fn(c);
+    pass_by_ref(c);
     std::cout.rdbuf(old);
     return buf.str();
 }
 
-int main() {
-    Circle c;
-    c.setRadius(5);
-    Circle* ptr = &c;
-
-    std::ostringstream addr;
-    addr << &c;
-    std::string main_addr = addr.str();
-
-    // pass_by_value: prints a DIFFERENT address (copy on stack)
-    std::string val_out = capture(pass_by_value, c);
-    check("pass_by_value produces output", val_out.size() > 0);
-    check("pass_by_value prints a DIFFERENT address than main",
-        val_out.find(main_addr) == std::string::npos);
-
-    // pass_by_pointer: prints the SAME address as main
-    std::string ptr_out = capture_ptr(pass_by_pointer, ptr);
-    check("pass_by_pointer produces output", ptr_out.size() > 0);
-    check("pass_by_pointer prints the SAME address as main",
-        ptr_out.find(main_addr) != std::string::npos);
-
-    // pass_by_ref: prints the SAME address as main
-    std::string ref_out = capture_ref(pass_by_ref, c);
-    check("pass_by_ref produces output", ref_out.size() > 0);
-    check("pass_by_ref prints the SAME address as main",
-        ref_out.find(main_addr) != std::string::npos);
-
-    std::cout << "\n" << passed << "/" << (passed + failed) << " tests passed\n";
-    return failed == 0 ? 0 : 1;
+static std::string address_of(const Circle& c) {
+    std::ostringstream a;
+    a << &c;
+    return a.str();
 }
+
+POTD_TEST("pass_by_value produces output") {
+    Circle c; c.setRadius(5);
+    POTD_ASSERT(capture_value(c).size() > 0);
+}
+
+POTD_TEST("pass_by_value prints a DIFFERENT address than main") {
+    Circle c; c.setRadius(5);
+    const std::string main_addr = address_of(c);
+    const std::string out = capture_value(c);
+    POTD_ASSERT(out.find(main_addr) == std::string::npos);
+}
+
+POTD_TEST("pass_by_pointer produces output") {
+    Circle c; c.setRadius(5);
+    POTD_ASSERT(capture_pointer(&c).size() > 0);
+}
+
+POTD_TEST("pass_by_pointer prints the SAME address as main") {
+    Circle c; c.setRadius(5);
+    const std::string main_addr = address_of(c);
+    const std::string out = capture_pointer(&c);
+    POTD_ASSERT(out.find(main_addr) != std::string::npos);
+}
+
+POTD_TEST("pass_by_ref produces output") {
+    Circle c; c.setRadius(5);
+    POTD_ASSERT(capture_ref(c).size() > 0);
+}
+
+POTD_TEST("pass_by_ref prints the SAME address as main") {
+    Circle c; c.setRadius(5);
+    const std::string main_addr = address_of(c);
+    const std::string out = capture_ref(c);
+    POTD_ASSERT(out.find(main_addr) != std::string::npos);
+}
+
+int main() { return potd::run_all(); }

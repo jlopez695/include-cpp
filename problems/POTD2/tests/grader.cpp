@@ -1,42 +1,59 @@
-#include <iostream>
 #include <string>
 #include "../Pet.h"
+#include "grader_harness.h"
 
-int passed = 0;
-int failed = 0;
-
-void check(const std::string& label, bool condition) {
-    if (condition) {
-        std::cout << "[PASS] " << label << "\n";
-        passed++;
-    } else {
-        std::cout << "[FAIL] " << label << "\n";
-        failed++;
-    }
-}
-
-int main() {
-    // Default constructor
+// Default constructor
+POTD_TEST("Default: name == Rover") {
     Pet d;
-    check("Default: name == Rover",      d.getName() == "Rover");
-    check("Default: birth_year == 2018", d.getBY() == 2018);
-    check("Default: type == dog",        d.getType() == "dog");
-    check("Default: owner == Wade",      d.getOwnerName() == "Wade");
-
-    // Parameterized constructor
-    Pet p("Whiskers", 2020, "cat", "Alice");
-    check("Param: name == Whiskers",     p.getName() == "Whiskers");
-    check("Param: birth_year == 2020",   p.getBY() == 2020);
-    check("Param: type == cat",          p.getType() == "cat");
-    check("Param: owner == Alice",       p.getOwnerName() == "Alice");
-
-    // Parameterized with different values
-    Pet p2("Rex", 2015, "dog", "Bob");
-    check("Param2: name == Rex",         p2.getName() == "Rex");
-    check("Param2: birth_year == 2015",  p2.getBY() == 2015);
-    check("Param2: type == dog",         p2.getType() == "dog");
-    check("Param2: owner == Bob",        p2.getOwnerName() == "Bob");
-
-    std::cout << "\n" << passed << "/" << (passed + failed) << " tests passed\n";
-    return failed == 0 ? 0 : 1;
+    POTD_ASSERT(d.getName() == "Rover");
 }
+POTD_TEST("Default: birth_year == 2018") {
+    Pet d;
+    POTD_ASSERT_EQ(d.getBY(), 2018);
+}
+POTD_TEST("Default: type == dog") {
+    Pet d;
+    POTD_ASSERT(d.getType() == "dog");
+}
+POTD_TEST("Default: owner == Wade") {
+    Pet d;
+    POTD_ASSERT(d.getOwnerName() == "Wade");
+}
+
+// Parameterized constructor
+POTD_TEST("Param: name == Whiskers") {
+    Pet p("Whiskers", 2020, "cat", "Alice");
+    POTD_ASSERT(p.getName() == "Whiskers");
+}
+POTD_TEST("Param: birth_year == 2020") {
+    Pet p("Whiskers", 2020, "cat", "Alice");
+    POTD_ASSERT_EQ(p.getBY(), 2020);
+}
+POTD_TEST("Param: type == cat") {
+    Pet p("Whiskers", 2020, "cat", "Alice");
+    POTD_ASSERT(p.getType() == "cat");
+}
+POTD_TEST("Param: owner == Alice") {
+    Pet p("Whiskers", 2020, "cat", "Alice");
+    POTD_ASSERT(p.getOwnerName() == "Alice");
+}
+
+// Parameterized with different values
+POTD_TEST("Param2: name == Rex") {
+    Pet p("Rex", 2015, "dog", "Bob");
+    POTD_ASSERT(p.getName() == "Rex");
+}
+POTD_TEST("Param2: birth_year == 2015") {
+    Pet p("Rex", 2015, "dog", "Bob");
+    POTD_ASSERT_EQ(p.getBY(), 2015);
+}
+POTD_TEST("Param2: type == dog") {
+    Pet p("Rex", 2015, "dog", "Bob");
+    POTD_ASSERT(p.getType() == "dog");
+}
+POTD_TEST("Param2: owner == Bob") {
+    Pet p("Rex", 2015, "dog", "Bob");
+    POTD_ASSERT(p.getOwnerName() == "Bob");
+}
+
+int main() { return potd::run_all(); }
