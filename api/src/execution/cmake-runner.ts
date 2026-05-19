@@ -102,9 +102,21 @@ export async function runCmake(
     emit({ kind: 'run-start' });
     const junitPath = path.join(buildDir, 'results.xml');
     await fs.promises.rm(junitPath, { force: true });
+    // Match the configure/build limits above (60s CPU / 60s wall). Without
+    // explicit limits this spawn falls back to DEFAULT_LIMITS — 10s CPU,
+    // 15s wall — set in resource-limits.ts. The configure and build spawns
+    // already explicitly override those defaults; ctest used to inherit
+    // them, so a test suite that took >10s of CPU got SIGKILL'd mid-run.
+    // ctest then exited non-zero and the runner read whatever
+    // results.xml fragment had been flushed before the kill, reporting a
+    // truncated passed/total to the user with no signal that the suite
+    // had been cut off. Any of the existing CS 225 problems that bundle
+    // a Catch2 harness with dozens of tests can plausibly cross the
+    // 10s default once test isolation overhead is factored in.
     const ctest = spawnLimited(`ctest --output-junit "${junitPath}" --output-on-failure`, {
       cwd: buildDir,
       env,
+      limits: { cpuSeconds: 60, wallMs: 60_000 },
       signal,
     });
     // Suppress ctest's raw stdout (progress lines) — we parse JUnit XML
