@@ -1,0 +1,7 @@
+{
+  "title": "struct Student",
+  "buildType": "makefile",
+  "editableFiles": ["student.hpp", "student.cc", "driver.cc"],
+  "readOnlyFiles": [],
+  "entrypoint": "main"
+}
