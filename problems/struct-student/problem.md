@@ -1,27 +1,9 @@
 # struct Student
 
-## The Files
+In this exercise, define the type `Student` using a `struct` declaration. Your `Student` type must have three data members: `first_name`, `last_name`, and `uin` typed `std::string`, `std::string`, `unsigned int` respectively.
 
-- `student.hpp`: The header file. Declare your `Student` struct here.
-- `student.cc`: The source file, in case you need it — a plain data struct with no member functions usually doesn't.
-- `driver.cc`: A driver file for you to write test statements in and observe the output. Edit it freely to try things out — it is not graded.
-
-## The Problem
-
-Define the type `Student` using a `struct` declaration. Your `Student` type must have three data members:
-
-| Member | Type |
-| --- | --- |
-| `first_name` | `std::string` |
-| `last_name` | `std::string` |
-| `uin` | `unsigned int` |
-
-Until you've correctly defined the data members for `Student`, your program will not compile with the test suite. Don't forget what you need to `#include` to use an `std::string`.
+It is important to note that until you have correctly defined the data members for `Student`, your program will not compile with our test suite. Therefore, we encourage you to write test statements in your `driver.cc` and then use the "Run" button to observe the output. Also, don't forget what you need to `#include` to use an `std::string`.
 
 ## Testing Your Code
 
 Run `make` to build the driver, then `./main` to try it out. Run `make test` to run the grader.
-
-## Graded Files
-
-`student.hpp` and `student.cc` are graded. `driver.cc` is yours to experiment with.
