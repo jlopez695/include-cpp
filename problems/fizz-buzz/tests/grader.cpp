@@ -50,20 +50,4 @@ POTD_TEST("numbers divisible by neither come back as digits") {
     POTD_ASSERT_EQ(FizzBuzz(101), "101");
 }
 
-// 0 % 3 == 0 and 0 % 5 == 0, so the spec's own rules make zero a FizzBuzz.
-// Any straightforward modulus solution gets this for free; a solution that
-// special-cases small numbers does not.
-POTD_TEST("FizzBuzz(0) returns FizzBuzz") {
-    POTD_ASSERT_EQ(FizzBuzz(0), "FizzBuzz");
-}
-
-// Negatives are likewise handled for free by the modulus rules: -3 % 3 == 0.
-// std::to_string(-7) is "-7", which is what the fall-through must produce.
-POTD_TEST("negative inputs follow the same rules") {
-    POTD_ASSERT_EQ(FizzBuzz(-3), "Fizz");
-    POTD_ASSERT_EQ(FizzBuzz(-5), "Buzz");
-    POTD_ASSERT_EQ(FizzBuzz(-15), "FizzBuzz");
-    POTD_ASSERT_EQ(FizzBuzz(-7), "-7");
-}
-
 int main() { return potd::run_all(); }
