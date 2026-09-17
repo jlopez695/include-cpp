@@ -1,0 +1,8 @@
+{
+  "title": "Array Contains Duplicates",
+  "buildType": "makefile",
+  "editableFiles": ["solution.hpp", "solution.cc", "driver.cc"],
+  "readOnlyFiles": [],
+  "entrypoint": "main",
+  "order": 7
+}
