@@ -1,7 +1,13 @@
 {
   "title": "Individual Words from std::string to std::vector<std::string>",
   "buildType": "makefile",
-  "editableFiles": ["utilities.cc", "driver.cc"],
-  "readOnlyFiles": ["utilities.hpp"],
-  "entrypoint": "main"
+  "editableFiles": [
+    "utilities.cc",
+    "driver.cc"
+  ],
+  "readOnlyFiles": [
+    "utilities.hpp"
+  ],
+  "entrypoint": "main",
+  "order": 4
 }

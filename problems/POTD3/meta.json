@@ -1,7 +1,15 @@
 {
   "title": "Pass by Value / Pointer / Reference",
   "buildType": "makefile",
-  "editableFiles": ["q4.cpp", "q4.h"],
-  "readOnlyFiles": ["Circle.h", "Circle.cpp", "main.cpp"],
-  "entrypoint": "main"
+  "editableFiles": [
+    "q4.cpp",
+    "q4.h"
+  ],
+  "readOnlyFiles": [
+    "Circle.h",
+    "Circle.cpp",
+    "main.cpp"
+  ],
+  "entrypoint": "main",
+  "order": 10
 }

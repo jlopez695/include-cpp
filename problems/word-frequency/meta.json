@@ -1,7 +1,13 @@
 {
   "title": "Word Frequency Counter",
   "buildType": "makefile",
-  "editableFiles": ["utilities.cc", "driver.cc"],
-  "readOnlyFiles": ["utilities.hpp"],
-  "entrypoint": "main"
+  "editableFiles": [
+    "utilities.cc",
+    "driver.cc"
+  ],
+  "readOnlyFiles": [
+    "utilities.hpp"
+  ],
+  "entrypoint": "main",
+  "order": 5
 }

@@ -1,7 +1,12 @@
 {
   "title": "struct Student",
   "buildType": "makefile",
-  "editableFiles": ["student.hpp", "student.cc", "driver.cc"],
+  "editableFiles": [
+    "student.hpp",
+    "student.cc",
+    "driver.cc"
+  ],
   "readOnlyFiles": [],
-  "entrypoint": "main"
+  "entrypoint": "main",
+  "order": 3
 }

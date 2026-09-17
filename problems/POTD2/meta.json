@@ -1,7 +1,13 @@
 {
   "title": "Pet Constructors",
   "buildType": "makefile",
-  "editableFiles": ["Pet.cpp", "Pet.h"],
-  "readOnlyFiles": ["main.cpp"],
-  "entrypoint": "main"
+  "editableFiles": [
+    "Pet.cpp",
+    "Pet.h"
+  ],
+  "readOnlyFiles": [
+    "main.cpp"
+  ],
+  "entrypoint": "main",
+  "order": 9
 }

@@ -1,7 +1,11 @@
 {
   "title": "Largest Digit Within an Integer",
   "buildType": "makefile",
-  "editableFiles": ["fun.cc", "driver.cc"],
+  "editableFiles": [
+    "fun.cc",
+    "driver.cc"
+  ],
   "readOnlyFiles": [],
-  "entrypoint": "main"
+  "entrypoint": "main",
+  "order": 1
 }

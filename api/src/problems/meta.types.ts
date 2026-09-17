@@ -6,6 +6,15 @@ export interface Meta {
   editableFiles: string[];
   readOnlyFiles: string[];
   entrypoint: string;
+  // Explicit sidebar/list-ordering key. Directory names stopped being a
+  // usable sort key once problems started being named by title slug
+  // (fizz-buzz, struct-student, ...) instead of POTD<n> — lexicographic
+  // sort scrambled the two families together. Ascending; ties break on
+  // directory name. Optional so a meta.json that predates this field (or
+  // a malformed one caught by validateMetaShape before this is checked)
+  // still loads — see readOrderHint in problems.service.ts for the
+  // missing-value fallback.
+  order?: number;
 }
 
 export interface ProblemSummary {

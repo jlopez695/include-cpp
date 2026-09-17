@@ -1,7 +1,11 @@
 {
   "title": "Fizz Buzz",
   "buildType": "makefile",
-  "editableFiles": ["fizz-buzz.cc", "driver.cc"],
+  "editableFiles": [
+    "fizz-buzz.cc",
+    "driver.cc"
+  ],
   "readOnlyFiles": [],
-  "entrypoint": "main"
+  "entrypoint": "main",
+  "order": 0
 }

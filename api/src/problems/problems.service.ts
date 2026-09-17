@@ -77,11 +77,49 @@ export class ProblemsService implements OnModuleInit {
   }
 
   private readIds(): string[] {
-    return fs
+    const candidates = fs
       .readdirSync(this.problemsDir)
       .filter(name => !name.startsWith('_') && !name.startsWith('.'))
-      .filter(name => fs.existsSync(path.join(this.problemsDir, name, 'meta.json')))
-      .sort();
+      .filter(name => fs.existsSync(path.join(this.problemsDir, name, 'meta.json')));
+
+    // Sort by meta.json's `order` field, ascending, tying broken on
+    // directory name. Plain lexicographic sort on the directory name
+    // (the old behavior) worked by accident while every problem was
+    // POTD<n> — it stopped working once problems started being named by
+    // title slug: uppercase POTD* sorts before all lowercase slugs in
+    // ASCII regardless of intent, and the slugs themselves sort
+    // alphabetically rather than in the order they were added. `order`
+    // is read directly here (not through readMetaFromDisk's full
+    // validation) because readIds() runs before populateCache decides
+    // which problems are well-formed enough to cache; a problem with a
+    // missing/malformed order (or an unparseable meta.json entirely)
+    // just sorts to the end rather than failing here — populateCache's
+    // own try/catch is still what ultimately skips a truly broken
+    // problem.
+    return candidates
+      .map(id => ({ id, order: this.readOrderHint(id) }))
+      .sort((a, b) => {
+        if (a.order !== b.order) return a.order - b.order;
+        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+      })
+      .map(c => c.id);
+  }
+
+  private readOrderHint(id: string): number {
+    try {
+      const raw = fs.readFileSync(path.join(this.problemsDir, id, 'meta.json'), 'utf8');
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof parsed.order === 'number' && Number.isFinite(parsed.order)) {
+        return parsed.order;
+      }
+    } catch {
+      // Malformed JSON or an unreadable file — fall through to the same
+      // end-of-list placement as a well-formed meta.json that simply
+      // omits `order`. populateCache's readMetaFromDisk reports the real
+      // error for this problem separately; this method only ever needs
+      // a sort key.
+    }
+    return Number.MAX_SAFE_INTEGER;
   }
 
   private readMetaFromDisk(id: string): Meta {
@@ -215,6 +253,9 @@ function validateMetaShape(parsed: unknown, id: string): Meta {
     throw new Error(`Problem ${id}: meta.json field 'entrypoint' must be a string`);
   }
   assertBareFilename(id, 'entrypoint', m.entrypoint);
+  if (m.order !== undefined && typeof m.order !== 'number') {
+    throw new Error(`Problem ${id}: meta.json field 'order' must be a number when present`);
+  }
   return parsed as Meta;
 }
 

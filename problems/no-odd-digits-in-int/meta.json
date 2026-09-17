@@ -1,7 +1,12 @@
 {
   "title": "Number of Odd Digits Within an Integer",
   "buildType": "makefile",
-  "editableFiles": ["number-utilities.hpp", "number-utilities.cc", "driver.cc"],
+  "editableFiles": [
+    "number-utilities.hpp",
+    "number-utilities.cc",
+    "driver.cc"
+  ],
   "readOnlyFiles": [],
-  "entrypoint": "main"
+  "entrypoint": "main",
+  "order": 2
 }

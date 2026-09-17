@@ -59,13 +59,30 @@ describe('ProblemsService in-memory cache', () => {
     );
   });
 
-  it('listIds() returns sorted array of problem IDs', () => {
+  // Plain lexicographic sort on directory name only worked by accident
+  // while every problem was POTD<n> — see the `order` field comment in
+  // meta.types.ts. Since problems started being named by title slug
+  // (fizz-buzz, struct-student, ...), listIds() sorts by each problem's
+  // meta.json `order` field instead, tie-broken by directory name; this
+  // pins that against the real problems/ tree rather than asserting the
+  // old (now-incorrect) "IDs come back plain-alphabetical" invariant.
+  it('listIds() returns problems ordered by meta.json order (ties broken alphabetically)', () => {
     const service = new ProblemsService();
     service.onModuleInit();
 
     const ids = service.listIds();
-    const sorted = [...ids].sort();
-    assert.deepStrictEqual(ids, sorted, 'IDs should be sorted');
+    const orderOf = (id: string): number => service.readMeta(id).order ?? Number.MAX_SAFE_INTEGER;
+
+    for (let i = 1; i < ids.length; i++) {
+      const prevId = ids[i - 1]!;
+      const curId = ids[i]!;
+      const prevOrder = orderOf(prevId);
+      const curOrder = orderOf(curId);
+      assert.ok(
+        prevOrder < curOrder || (prevOrder === curOrder && prevId < curId),
+        `expected '${prevId}' (order ${prevOrder}) to sort before '${curId}' (order ${curOrder})`,
+      );
+    }
   });
 
   // readMeta() is invoked on every code-execution request (runStream reads

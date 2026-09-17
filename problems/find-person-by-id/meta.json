@@ -1,7 +1,14 @@
 {
   "title": "Find Person By Id",
   "buildType": "makefile",
-  "editableFiles": ["utilities.cc", "driver.cc"],
-  "readOnlyFiles": ["person.hpp", "utilities.hpp"],
-  "entrypoint": "main"
+  "editableFiles": [
+    "utilities.cc",
+    "driver.cc"
+  ],
+  "readOnlyFiles": [
+    "person.hpp",
+    "utilities.hpp"
+  ],
+  "entrypoint": "main",
+  "order": 6
 }
