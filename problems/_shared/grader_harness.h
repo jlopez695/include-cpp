@@ -62,42 +62,55 @@ struct AssertionFailure {
     std::string message;
 };
 
-inline void emit_test_event(const char* name, const char* status, const std::string& message = "") {
+// Escape one sentinel attribute value. Three rules, all of them load-bearing
+// for the parser in api/src/execution/sentinel.ts:
+//
+//   1. `"` → `\"`   — parseKv reads quoted values with
+//                      /"((?:[^"\\]|\\.)*)"/, so an unescaped quote ends
+//                      the value early.
+//   2. newline → ' ' — a sentinel is a single line by construction.
+//   3. `>>>` → `>> >` — the non-greedy SENTINEL_RE close-marker latches onto
+//                      the FIRST `>>>` after the open, so a literal run of
+//                      three would terminate the sentinel mid-body. Inserting
+//                      a space between the 2nd and 3rd `>` keeps the text
+//                      reading as three `>` characters while removing the
+//                      substring. Single `>` and `>>` runs are legal body
+//                      content and are left alone.
+//
+// This pass used to be inlined in emit_test_event and applied to `message`
+// ONLY. A test whose NAME contained a quote — e.g. POTD_TEST("FizzBuzz(3) ==
+// \"Fizz\"") — emitted
+//     <<<POTD-TEST name="FizzBuzz(3) == "Fizz"" status=pass>>>
+// and parseKv ended the name at the second quote, so the UI rendered the row
+// as `FizzBuzz(3) == ` with the rest silently dropped. `status` still parsed
+// (the scan resumes past the short match), so the test's pass/fail outcome was
+// correct and only the label was mangled — which made it look like a harness
+// bug rather than anything to do with the name. A name containing `>>>` was
+// worse: it truncated the whole sentinel and leaked the tail into the user's
+// output panel. Both names and messages are author-controlled, so this is a
+// correctness/legibility fix, not a security boundary.
+inline std::string escape_sentinel_value(const std::string& raw) {
     std::string escaped;
-    for (char c : message) {
+    for (char c : raw) {
         if (c == '"') escaped += "\\\"";
         else if (c == '\n') escaped += ' ';
         else escaped += c;
     }
-    // Break any `>>>` run inside the message so it can't terminate the
-    // sentinel early. The parser at api/src/execution/sentinel.ts
-    // matches with a non-greedy regex anchored on a literal `>>>` close
-    // marker, and parseKv treats anything before that marker as the
-    // sentinel body. An assertion message like
-    //   "expected x >>> 3, got 5"
-    // would otherwise produce
-    //   <<<POTD-TEST name="foo" status=fail message="expected x >>> 3, got 5">>>
-    // which the regex truncates at the FIRST `>>>` — yielding a TEST
-    // event with message="expected x " and leaking ` 3, got 5">>>` into
-    // the user's output panel via the inline-strip pass. Insert a space
-    // between the 2nd and 3rd `>` so the visible message still reads
-    // as three `>` characters in sequence but the parser's close marker
-    // can no longer latch onto it. Single-` >` and `>>` runs are left
-    // intact (the parser already handles them — see the sentinel
-    // header comment "Body can contain `>` ... but cannot contain the
-    // literal terminator `>>>`").
-    {
-        size_t pos = 0;
-        while ((pos = escaped.find(">>>", pos)) != std::string::npos) {
-            escaped.replace(pos, 3, ">> >");
-            pos += 4;
-        }
+    size_t pos = 0;
+    while ((pos = escaped.find(">>>", pos)) != std::string::npos) {
+        escaped.replace(pos, 3, ">> >");
+        pos += 4;
     }
+    return escaped;
+}
+
+inline void emit_test_event(const char* name, const char* status, const std::string& message = "") {
+    const std::string safe_name = escape_sentinel_value(name);
     if (message.empty()) {
-        std::printf("<<<POTD-TEST name=\"%s\" status=%s>>>\n", name, status);
+        std::printf("<<<POTD-TEST name=\"%s\" status=%s>>>\n", safe_name.c_str(), status);
     } else {
         std::printf("<<<POTD-TEST name=\"%s\" status=%s message=\"%s\">>>\n",
-                    name, status, escaped.c_str());
+                    safe_name.c_str(), status, escape_sentinel_value(message).c_str());
     }
     std::fflush(stdout);
 }

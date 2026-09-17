@@ -64,29 +64,29 @@ describe('grader_harness.h emit_test_event escapes any `>>>` run in the message 
     );
   });
 
-  it('emit_test_event collapses any `>>>` run in the escape pass', () => {
+  it('the escape pass collapses any `>>>` run', () => {
     // Pin the specific shape from the fix: find(">>>") inside the
     // function. The exact replacement string can drift in a future
     // refactor (e.g., a different separator), so anchor on the
     // distinguishing feature: a find of the literal three-`>` string
     // inside the function body.
-    const emitFnSlice = extractEmitTestEventBody(source);
+    const escapeFnSlice = extractEscapeFnBody(source);
     assert.match(
-      emitFnSlice,
+      escapeFnSlice,
       /find\("\>\>\>"/,
       'emit_test_event must search for the literal `>>>` close-marker substring inside the escaped message and break it before printing the sentinel. Without this guard a message like "expected x >>> 3" terminates the sentinel mid-body and corrupts the parsed TEST row.',
     );
   });
 
-  it('emit_test_event still escapes embedded double-quotes (the pre-existing escape is preserved)', () => {
+  it('the escape pass still escapes embedded double-quotes (the pre-existing escape is preserved)', () => {
     // The fix layered on top of the existing escape pass; if a future
     // refactor swaps the loop body and accidentally drops the `"` →
     // `\\"` rule, parseKv's quoted-string branch breaks. Pin the
     // existing quote-escape so regressing to "I just rewrote the
     // escape loop" trips here.
-    const emitFnSlice = extractEmitTestEventBody(source);
+    const escapeFnSlice = extractEscapeFnBody(source);
     assert.match(
-      emitFnSlice,
+      escapeFnSlice,
       /c\s*==\s*'"'/,
       "emit_test_event must still escape embedded `\"` characters; parseKv's quoted-string branch depends on it",
     );
@@ -157,18 +157,24 @@ describe('parseSentinels accepts the escaped triple-rangle shape that emit_test_
 });
 
 /**
- * Slice out just the body of `emit_test_event` from grader_harness.h
+ * Slice out just the body of `escape_sentinel_value` from grader_harness.h
  * so the structural-pin assertions don't accidentally satisfy themselves
  * against unrelated code elsewhere in the header. Returns the substring
  * between the function signature and its closing brace.
  *
- * Cheap brace-counting parser — emit_test_event has no nested unbalanced
+ * The escape pass used to live inline in `emit_test_event`, which is what
+ * this test originally sliced. It was extracted into `escape_sentinel_value`
+ * so it could be applied to the sentinel's `name` attribute as well as its
+ * `message` — see grader-harness-escape-name.spec.ts. The assertions below
+ * are unchanged; only the slice target moved.
+ *
+ * Cheap brace-counting parser — the function has no nested unbalanced
  * brace literals in its body (the `>>>` appears inside string literals,
  * but the outer braces match cleanly).
  */
-function extractEmitTestEventBody(source: string): string {
-  const sig = source.indexOf('inline void emit_test_event(');
-  assert.ok(sig >= 0, 'emit_test_event must be defined in grader_harness.h');
+function extractEscapeFnBody(source: string): string {
+  const sig = source.indexOf('inline std::string escape_sentinel_value(');
+  assert.ok(sig >= 0, 'escape_sentinel_value must be defined in grader_harness.h');
   const openBrace = source.indexOf('{', sig);
   assert.ok(openBrace > sig);
   let depth = 0;
@@ -183,5 +189,5 @@ function extractEmitTestEventBody(source: string): string {
       }
     }
   }
-  throw new Error('emit_test_event closing brace not found');
+  throw new Error('escape_sentinel_value closing brace not found');
 }
