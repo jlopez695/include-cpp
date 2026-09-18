@@ -42,7 +42,7 @@ describe('ProblemsService boot-time resilience', () => {
   let tmpRoot: string;
 
   before(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'potd-svc-resilience-'));
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cpp-svc-resilience-'));
 
     // GOOD: well-formed problem, all files present.
     writeProblem(tmpRoot, 'AAA_GOOD', {

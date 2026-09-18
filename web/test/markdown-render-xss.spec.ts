@@ -97,8 +97,8 @@ test('mailto: link is preserved (third allowed protocol)', async () => {
   // legitimately link to an instructor's email. Pin it so a future
   // "tighten the allowlist further" change has to consciously decide
   // whether to drop mailto.
-  const html = await renderMarkdown('[email](mailto:cs225@illinois.edu)');
-  assert.match(html, /href="mailto:cs225@illinois\.edu"/, `Got: ${html}`);
+  const html = await renderMarkdown('[email](mailto:instructor@example.com)');
+  assert.match(html, /href="mailto:instructor@example\.com"/, `Got: ${html}`);
 });
 
 test('cpp code block keeps highlight-js classNames (sanitize-before-highlight order)', async () => {

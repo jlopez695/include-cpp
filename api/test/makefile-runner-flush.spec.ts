@@ -11,7 +11,7 @@
  * tail at EOF:
  *
  *   - SIGKILL mid-print (wallTimer / abort): the child can be killed
- *     after `<<<POTD-RESULT ...>>>` has flushed but before the trailing
+ *     after `<<<GRADER-RESULT ...>>>` has flushed but before the trailing
  *     `\n` does.
  *   - A future harness author who forgets `\n` or fflush.
  *   - Custom buffering inside the test binary that defers the newline
@@ -19,7 +19,7 @@
  *
  * Before this fix, the tail in those cases was emitted as a literal
  * `stdout` event. The UI doesn't strip sentinels from stdout (that
- * happens in the parser path), so users saw raw `<<<POTD-RESULT ...>>>`
+ * happens in the parser path), so users saw raw `<<<GRADER-RESULT ...>>>`
  * text in their output panel AND the result line ("N / total tests
  * passed") never appeared because no `result` sentinel event ever
  * reached the renderer. A real "5/5 pass" run could look like 0/0.
@@ -52,7 +52,7 @@ function collect(text: string): Collected {
 
 test('dispatchStdout: sentinel WITH trailing newline parses and emits no raw stdout', () => {
   const { events, sentinels } = collect(
-    '<<<POTD-RESULT tests-passed=5 tests-total=5>>>\n',
+    '<<<GRADER-RESULT tests-passed=5 tests-total=5>>>\n',
   );
   assert.equal(sentinels.length, 1, 'should parse one sentinel');
   assert.deepEqual(sentinels[0], { type: 'result', passed: 5, total: 5 });
@@ -61,10 +61,10 @@ test('dispatchStdout: sentinel WITH trailing newline parses and emits no raw std
 });
 
 test('dispatchStdout: sentinel WITHOUT trailing newline still parses (the EOF flush case)', () => {
-  // This is the bug. Pre-fix this called emit({kind:"stdout", data: "<<<POTD-RESULT...>>>"})
+  // This is the bug. Pre-fix this called emit({kind:"stdout", data: "<<<GRADER-RESULT...>>>"})
   // and zero sentinel callbacks fired, so the renderer never saw the result event.
   const { events, sentinels } = collect(
-    '<<<POTD-RESULT tests-passed=3 tests-total=5>>>',
+    '<<<GRADER-RESULT tests-passed=3 tests-total=5>>>',
   );
   assert.equal(sentinels.length, 1, 'sentinel must still be parsed at EOF');
   assert.deepEqual(sentinels[0], { type: 'result', passed: 3, total: 5 });
@@ -73,7 +73,7 @@ test('dispatchStdout: sentinel WITHOUT trailing newline still parses (the EOF fl
   assert.equal(
     stdoutEvents.length,
     0,
-    'sentinel text must not appear as raw stdout (it would render as <<<POTD-RESULT...>>> verbatim)',
+    'sentinel text must not appear as raw stdout (it would render as <<<GRADER-RESULT...>>> verbatim)',
   );
 });
 
@@ -95,8 +95,8 @@ test('dispatchStdout: mixed user text + sentinel without trailing newline (the r
   // tail at on-end will look something like this:
   const tail =
     'Last user line\n' +
-    '<<<POTD-TEST name="t" status=pass>>>\n' +
-    '<<<POTD-RESULT tests-passed=1 tests-total=1>>>';
+    '<<<GRADER-TEST name="t" status=pass>>>\n' +
+    '<<<GRADER-RESULT tests-passed=1 tests-total=1>>>';
   const { events, sentinels } = collect(tail);
 
   // Both sentinels recovered.
@@ -111,6 +111,6 @@ test('dispatchStdout: mixed user text + sentinel without trailing newline (the r
     .join('');
   assert.match(stdoutData, /Last user line/);
   // ...and the sentinel text does NOT show up in stdout (no leak).
-  assert.doesNotMatch(stdoutData, /POTD-TEST/);
-  assert.doesNotMatch(stdoutData, /POTD-RESULT/);
+  assert.doesNotMatch(stdoutData, /GRADER-TEST/);
+  assert.doesNotMatch(stdoutData, /GRADER-RESULT/);
 });

@@ -1,4 +1,4 @@
-// CS 225 POTD — Grader harness
+// Grader harness
 //
 // Each test runs in a forked child process. A segfault, abort, or infinite
 // loop in test N does not kill tests N+1...M. Results are reported via
@@ -6,20 +6,20 @@
 // with the student's own stdout.
 //
 // Sentinel format (parsed by api/src/execution/sentinel.ts):
-//   <<<POTD-TEST name="..." status=pass>>>
-//   <<<POTD-TEST name="..." status=fail message="...">>>
-//   <<<POTD-RESULT tests-passed=N tests-total=M>>>
+//   <<<GRADER-TEST name="..." status=pass>>>
+//   <<<GRADER-TEST name="..." status=fail message="...">>>
+//   <<<GRADER-RESULT tests-passed=N tests-total=M>>>
 //
 // Usage:
 //   #include "grader_harness.h"
 //
-//   POTD_TEST("hours(3600) == 1") {
-//       POTD_ASSERT_EQ(hours(3600), 1);
+//   GRADER_TEST("hours(3600) == 1") {
+//       GRADER_ASSERT_EQ(hours(3600), 1);
 //   }
-//   POTD_TEST("days(86400) == 1") {
-//       POTD_ASSERT_EQ(days(86400), 1);
+//   GRADER_TEST("days(86400) == 1") {
+//       GRADER_ASSERT_EQ(days(86400), 1);
 //   }
-//   int main() { return potd::run_all(); }
+//   int main() { return grader::run_all(); }
 
 #pragma once
 
@@ -36,7 +36,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-namespace potd {
+namespace grader {
 
 struct Test {
     const char* name;
@@ -78,9 +78,9 @@ struct AssertionFailure {
 //                      content and are left alone.
 //
 // This pass used to be inlined in emit_test_event and applied to `message`
-// ONLY. A test whose NAME contained a quote — e.g. POTD_TEST("FizzBuzz(3) ==
+// ONLY. A test whose NAME contained a quote — e.g. GRADER_TEST("FizzBuzz(3) ==
 // \"Fizz\"") — emitted
-//     <<<POTD-TEST name="FizzBuzz(3) == "Fizz"" status=pass>>>
+//     <<<GRADER-TEST name="FizzBuzz(3) == "Fizz"" status=pass>>>
 // and parseKv ended the name at the second quote, so the UI rendered the row
 // as `FizzBuzz(3) == ` with the rest silently dropped. `status` still parsed
 // (the scan resumes past the short match), so the test's pass/fail outcome was
@@ -107,16 +107,16 @@ inline std::string escape_sentinel_value(const std::string& raw) {
 inline void emit_test_event(const char* name, const char* status, const std::string& message = "") {
     const std::string safe_name = escape_sentinel_value(name);
     if (message.empty()) {
-        std::printf("<<<POTD-TEST name=\"%s\" status=%s>>>\n", safe_name.c_str(), status);
+        std::printf("<<<GRADER-TEST name=\"%s\" status=%s>>>\n", safe_name.c_str(), status);
     } else {
-        std::printf("<<<POTD-TEST name=\"%s\" status=%s message=\"%s\">>>\n",
+        std::printf("<<<GRADER-TEST name=\"%s\" status=%s message=\"%s\">>>\n",
                     safe_name.c_str(), status, escape_sentinel_value(message).c_str());
     }
     std::fflush(stdout);
 }
 
 inline void emit_result(int passed, int total) {
-    std::printf("<<<POTD-RESULT tests-passed=%d tests-total=%d>>>\n", passed, total);
+    std::printf("<<<GRADER-RESULT tests-passed=%d tests-total=%d>>>\n", passed, total);
     std::fflush(stdout);
 }
 
@@ -195,7 +195,7 @@ inline ChildResult run_in_child(const Test& t) {
     // same as end-of-stream, silently truncating the child's stderr
     // and producing an empty/partial assertion message back to the
     // user. SIGCHLD from a sibling test is the most common interrupter
-    // (this runs from inside potd::run_all which is forking children
+    // (this runs from inside grader::run_all which is forking children
     // back-to-back), but any signal the OS delivers to the grader
     // process can trip it. Retry on EINTR and only terminate on real
     // EOF (n == 0) or a non-EINTR error.
@@ -263,51 +263,51 @@ inline int run_all() {
     return passed == total ? 0 : 1;
 }
 
-}  // namespace potd
+}  // namespace grader
 
 // ────────────────────────────────────────────────────────────────────────────
 // Macros
 // ────────────────────────────────────────────────────────────────────────────
-#define POTD_CONCAT_INNER(a, b) a##b
-#define POTD_CONCAT(a, b) POTD_CONCAT_INNER(a, b)
+#define GRADER_CONCAT_INNER(a, b) a##b
+#define GRADER_CONCAT(a, b) GRADER_CONCAT_INNER(a, b)
 
-#define POTD_TEST(NAME)                                                          \
-    static void POTD_CONCAT(potd_test_fn_, __LINE__)();                          \
-    static ::potd::Register POTD_CONCAT(potd_test_reg_, __LINE__)(               \
-        NAME, &POTD_CONCAT(potd_test_fn_, __LINE__));                            \
-    static void POTD_CONCAT(potd_test_fn_, __LINE__)()
+#define GRADER_TEST(NAME)                                                          \
+    static void GRADER_CONCAT(grader_test_fn_, __LINE__)();                          \
+    static ::grader::Register GRADER_CONCAT(grader_test_reg_, __LINE__)(               \
+        NAME, &GRADER_CONCAT(grader_test_fn_, __LINE__));                            \
+    static void GRADER_CONCAT(grader_test_fn_, __LINE__)()
 
-#define POTD_FAIL(MSG)                                                           \
+#define GRADER_FAIL(MSG)                                                           \
     do {                                                                         \
         std::ostringstream _oss;                                                 \
         _oss << MSG;                                                             \
-        throw ::potd::AssertionFailure{_oss.str()};                              \
+        throw ::grader::AssertionFailure{_oss.str()};                              \
     } while (0)
 
-#define POTD_ASSERT(COND)                                                        \
+#define GRADER_ASSERT(COND)                                                        \
     do {                                                                         \
-        if (!(COND)) POTD_FAIL("assertion failed: " #COND);                      \
+        if (!(COND)) GRADER_FAIL("assertion failed: " #COND);                      \
     } while (0)
 
-#define POTD_ASSERT_EQ(ACTUAL, EXPECTED)                                         \
+#define GRADER_ASSERT_EQ(ACTUAL, EXPECTED)                                         \
     do {                                                                         \
         auto _a = (ACTUAL);                                                      \
         auto _e = (EXPECTED);                                                    \
         if (!(_a == _e)) {                                                       \
-            POTD_FAIL("expected " #ACTUAL " == " #EXPECTED                       \
+            GRADER_FAIL("expected " #ACTUAL " == " #EXPECTED                       \
                       ": got " << _a << ", expected " << _e);                    \
         }                                                                        \
     } while (0)
 
-#define POTD_ASSERT_NE(ACTUAL, EXPECTED)                                         \
+#define GRADER_ASSERT_NE(ACTUAL, EXPECTED)                                         \
     do {                                                                         \
         auto _a = (ACTUAL);                                                      \
         auto _e = (EXPECTED);                                                    \
         if (!(_a != _e)) {                                                       \
-            POTD_FAIL("expected " #ACTUAL " != " #EXPECTED                       \
+            GRADER_FAIL("expected " #ACTUAL " != " #EXPECTED                       \
                       ": both = " << _a);                                        \
         }                                                                        \
     } while (0)
 
-#define POTD_ASSERT_TRUE(COND)  POTD_ASSERT(COND)
-#define POTD_ASSERT_FALSE(COND) POTD_ASSERT(!(COND))
+#define GRADER_ASSERT_TRUE(COND)  GRADER_ASSERT(COND)
+#define GRADER_ASSERT_FALSE(COND) GRADER_ASSERT(!(COND))

@@ -163,6 +163,15 @@ describe('Editor-native redesign — regression', () => {
       assert.ok(interBlock);
       assert.match(interBlock![0], /weight:\s*\['400',\s*'500',\s*'600'\]/);
     });
+
+    it('JetBrains_Mono loads 600 — the wordmark is mono at font-semibold', () => {
+      // Without 600 the browser synthesizes a fake bold for the
+      // `#include <cpp>` mark, which smears badly on a mono face.
+      const src = read('app/layout.tsx');
+      const monoBlock = src.match(/JetBrains_Mono\(\{[\s\S]*?\}\)/);
+      assert.ok(monoBlock);
+      assert.match(monoBlock![0], /weight:\s*\['400',\s*'500',\s*'600'\]/);
+    });
   });
 
   describe('Elevation utilities (light-from-sky cues)', () => {
@@ -178,6 +187,26 @@ describe('Editor-native redesign — regression', () => {
       assert.match(css, /html\.light\s+\.elevation-1\s*\{/);
       assert.match(css, /html\.light\s+\.elevation-button\s*\{/);
       assert.match(css, /html\.light\s+\.elevation-modal\s*\{/);
+    });
+
+    it('hit-area utilities do not force position on an already-positioned element', () => {
+      // These are unlayered rules, which outrank every Tailwind utility
+      // regardless of source order, so a bare `position: relative` here
+      // beat `.absolute` — the sidebar's bookmark star left the row's
+      // right edge and reflowed to the bottom-left. The guard keeps
+      // `relative` as a floor for unpositioned elements (the ::before
+      // needs a positioned ancestor) without overriding a utility.
+      const css = read('app/globals.css');
+      for (const cls of ['.hit-area', '.hit-area-lg']) {
+        const rule = new RegExp(`\\${cls}(:not\\([^)]+\\))*\\s*\\{[^}]*position:\\s*relative`);
+        const match = css.match(rule);
+        assert.ok(match, `${cls} should declare position: relative`);
+        assert.match(
+          match![0],
+          /:not\(\.absolute\)/,
+          `${cls} must not set position on an element that a utility already positions`,
+        );
+      }
     });
 
     it('Modal uses .elevation-modal instead of shadow-2xl', () => {
@@ -255,12 +284,24 @@ describe('Editor-native redesign — regression', () => {
       assert.match(sidebarSrc, /rounded-md/);
     });
 
-    it('brand mark is the vertical accent bar + display-weight "CS 225" wordmark', () => {
-      // New brand identity: a 1×5 accent bar acts as the logo, with "CS 225"
-      // rendered at display weight (font-semibold) and 18px.
+    it('brand mark is the vertical accent bar + monospace "#include <cpp>" wordmark', () => {
+      // Brand identity: a 1×5 accent bar acts as the logo, with the
+      // `#include <cpp>` wordmark rendered in the editor's mono face at
+      // display weight (font-semibold) and 18px.
       assert.match(sidebarSrc, /w-1 h-5 bg-accent/);
       assert.match(sidebarSrc, /text-\[18px\] font-semibold/);
-      assert.match(sidebarSrc, /CS 225/);
+      assert.match(sidebarSrc, /font-mono/);
+      assert.match(sidebarSrc, /#include <cpp>/);
+    });
+
+    it('rows carry no fixed-width id column, so slug ids cannot wrap', () => {
+      // The id lived in a `w-12 shrink-0` span with no truncate. That fit
+      // POTD0 but not slug ids: largest-digit-from-int wrapped to four
+      // lines inside 48px, tripling the row height and squeezing every
+      // title into an ellipsis. The id is still reachable via search,
+      // the URL, and the TopBar.
+      assert.doesNotMatch(sidebarSrc, /w-12 shrink-0/);
+      assert.doesNotMatch(sidebarSrc, /\{p\.id\}<\/span>/);
     });
 
     it('search renders as a real input shell (border + bg), not bare text', () => {
@@ -293,9 +334,9 @@ describe('Editor-native redesign — regression', () => {
   });
 
   describe('Prose h2 is no longer an eyebrow tag', () => {
-    it('prose-potd h2 is not uppercase + tracked', () => {
+    it('prose h2 is not uppercase + tracked', () => {
       const css = read('app/globals.css');
-      const h2 = css.match(/\.prose-potd h2\s*\{[\s\S]*?\}/);
+      const h2 = css.match(/\.prose h2\s*\{[\s\S]*?\}/);
       assert.ok(h2);
       assert.doesNotMatch(h2![0], /text-transform:\s*uppercase/);
       assert.doesNotMatch(h2![0], /letter-spacing:\s*[01]\.[0-9]+px/);

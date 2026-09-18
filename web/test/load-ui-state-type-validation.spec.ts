@@ -27,7 +27,7 @@ import { loadUiState } from '../lib/storage.js';
 // expects to be a number flows straight through:
 //
 //   loadUiState('split-h', 38)               // caller wants number 38
-//   localStorage['potd:ui:split-h'] = '"x"'  // got corrupted to a string
+//   localStorage['cpp:ui:split-h'] = '"x"'  // got corrupted to a string
 //   → returns "x"
 //
 // useResizable then does `Math.max(20, Math.min(70, "x"))` which coerces
@@ -46,34 +46,34 @@ describe('loadUiState validates the parsed shape against the fallback type', () 
   });
 
   it('returns the parsed value when the stored shape matches the fallback (number)', () => {
-    store['potd:ui:split-h'] = JSON.stringify(42);
+    store['cpp:ui:split-h'] = JSON.stringify(42);
     assert.equal(loadUiState('split-h', 38), 42);
   });
 
   it('returns the parsed value when the stored shape matches the fallback (string)', () => {
-    store['potd:ui:theme'] = JSON.stringify('dark');
+    store['cpp:ui:theme'] = JSON.stringify('dark');
     assert.equal(loadUiState('theme', 'light'), 'dark');
   });
 
   it('returns the parsed value when the stored shape matches the fallback (boolean)', () => {
-    store['potd:ui:vim'] = JSON.stringify(true);
+    store['cpp:ui:vim'] = JSON.stringify(true);
     assert.equal(loadUiState('vim', false), true);
   });
 
   it('returns the fallback when stored value is a string but caller expects a number', () => {
     // The bug: corrupted "hello" reaches useResizable as a string, then
     // Math.max(min, Math.min(max, "hello")) is NaN, and the panel breaks.
-    store['potd:ui:split-h'] = JSON.stringify('hello');
+    store['cpp:ui:split-h'] = JSON.stringify('hello');
     assert.equal(loadUiState('split-h', 38), 38);
   });
 
   it('returns the fallback when stored value is a number but caller expects a string', () => {
-    store['potd:ui:theme'] = JSON.stringify(42);
+    store['cpp:ui:theme'] = JSON.stringify(42);
     assert.equal(loadUiState('theme', 'light'), 'light');
   });
 
   it('returns the fallback when stored value is a boolean but caller expects a number', () => {
-    store['potd:ui:split-h'] = JSON.stringify(true);
+    store['cpp:ui:split-h'] = JSON.stringify(true);
     assert.equal(loadUiState('split-h', 38), 38);
   });
 
@@ -81,7 +81,7 @@ describe('loadUiState validates the parsed shape against the fallback type', () 
     // `typeof null === 'object'` — without explicit null handling the
     // validator would mis-classify it. JSON null shouldn't reach the
     // useResizable layer as a "valid number".
-    store['potd:ui:split-h'] = JSON.stringify(null);
+    store['cpp:ui:split-h'] = JSON.stringify(null);
     assert.equal(loadUiState('split-h', 38), 38);
   });
 
@@ -89,14 +89,14 @@ describe('loadUiState validates the parsed shape against the fallback type', () 
     // `typeof [] === 'object'`, so a bare typeof check would let an array
     // through when the caller wanted a plain object. Array.isArray needs
     // to match between fallback and parsed.
-    store['potd:ui:layout'] = JSON.stringify([1, 2, 3]);
+    store['cpp:ui:layout'] = JSON.stringify([1, 2, 3]);
     const fallback = { width: 100, height: 200 };
     const result = loadUiState('layout', fallback);
     assert.deepEqual(result, fallback);
   });
 
   it('returns the parsed value when stored is an object and fallback is an object', () => {
-    store['potd:ui:layout'] = JSON.stringify({ width: 50, height: 60 });
+    store['cpp:ui:layout'] = JSON.stringify({ width: 50, height: 60 });
     const fallback = { width: 100, height: 200 };
     const result = loadUiState('layout', fallback);
     assert.deepEqual(result, { width: 50, height: 60 });
@@ -105,7 +105,7 @@ describe('loadUiState validates the parsed shape against the fallback type', () 
   it('returns the parsed value when stored is an array and fallback is an array', () => {
     // Symmetric to the typeof-vs-Array.isArray case above: matching arrays
     // must pass through, not get rejected because the validator over-fires.
-    store['potd:ui:list'] = JSON.stringify(['a', 'b', 'c']);
+    store['cpp:ui:list'] = JSON.stringify(['a', 'b', 'c']);
     const fallback: string[] = [];
     assert.deepEqual(loadUiState('list', fallback), ['a', 'b', 'c']);
   });
@@ -114,7 +114,7 @@ describe('loadUiState validates the parsed shape against the fallback type', () 
     // Pre-existing behavior — covered by storage-corruption.spec.ts for
     // other keys but not for loadUiState specifically. The fix must NOT
     // regress this path.
-    store['potd:ui:split-h'] = '{not json';
+    store['cpp:ui:split-h'] = '{not json';
     assert.equal(loadUiState('split-h', 38), 38);
   });
 

@@ -56,7 +56,7 @@ test('the cmake-runner size cap shape: stat.size > 10MB triggers the bypass bran
   // pins the *threshold* and the file-stat shape it reads. If a
   // future refactor moves the cap value, this test should fail
   // loudly so the documented threshold stays in sync.
-  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'potd-junit-cap-'));
+  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'cpp-junit-cap-'));
   try {
     const huge = path.join(tmpDir, 'results.xml');
     // 10 MB + 1 byte. Use writeFile with a Buffer to avoid

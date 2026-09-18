@@ -85,9 +85,9 @@ describe('recordSolveDate immutability', () => {
   it('appends today without mutating the previously-read array reference', () => {
     // Seed an initial date so the read-and-append path runs (the
     // first call on an empty store wouldn't exercise the spread).
-    store['potd:solve-dates'] = JSON.stringify(['2026-01-01']);
+    store['cpp:solve-dates'] = JSON.stringify(['2026-01-01']);
     // Hold a reference shape that we can compare against.
-    const before = JSON.parse(store['potd:solve-dates']!) as string[];
+    const before = JSON.parse(store['cpp:solve-dates']!) as string[];
     recordSolveDate();
     // The seeded `before` array (from a previous JSON.parse) should
     // still be exactly one element — recordSolveDate must not have
@@ -95,7 +95,7 @@ describe('recordSolveDate immutability', () => {
     // appended to the same reference if a caller hung onto it.
     assert.deepEqual(before, ['2026-01-01']);
     // The persisted state reflects today + the seed.
-    const after = JSON.parse(store['potd:solve-dates']!) as string[];
+    const after = JSON.parse(store['cpp:solve-dates']!) as string[];
     assert.equal(after.length, 2);
     assert.ok(after.includes('2026-01-01'));
   });
@@ -103,7 +103,7 @@ describe('recordSolveDate immutability', () => {
   it('is idempotent for same-day re-solves (no duplicate today)', () => {
     recordSolveDate();
     recordSolveDate();
-    const dates = JSON.parse(store['potd:solve-dates'] ?? '[]') as string[];
+    const dates = JSON.parse(store['cpp:solve-dates'] ?? '[]') as string[];
     assert.equal(dates.length, 1);
   });
 });

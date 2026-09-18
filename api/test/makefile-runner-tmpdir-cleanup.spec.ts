@@ -13,7 +13,7 @@
  * which means:
  *   - The HTTP response and the SSE stream both completed and the
  *     enclosing async function resolved while the tmpdir was still on
- *     disk. Under sustained load, /tmp/potd-* could briefly accumulate
+ *     disk. Under sustained load, /tmp/cpp-* could briefly accumulate
  *     hundreds of directories.
  *   - If the Node process took a SIGTERM (graceful redeploy) or SIGKILL
  *     (OOM) in the gap between resolve and rm flush, the dir leaked

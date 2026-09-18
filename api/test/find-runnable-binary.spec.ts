@@ -2,7 +2,7 @@
  * Regression test for "cmake /run silently invokes the Catch2 test
  * runner instead of the assignment binary".
  *
- * CS 225 cmake problems (POTD64 et al.) build TWO executables in the
+ * cmake problems (POTD64 et al.) build TWO executables in the
  * same build directory:
  *   - <buildDir>/main : the assignment entrypoint (meta.entrypoint)
  *   - <buildDir>/test : the Catch2 test runner (catch_discover_tests)

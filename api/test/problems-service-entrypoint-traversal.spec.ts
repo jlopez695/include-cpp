@@ -52,7 +52,7 @@ describe('ProblemsService meta.json path-traversal rejection', () => {
   let tmpRoot: string;
 
   before(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'potd-svc-traversal-'));
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cpp-svc-traversal-'));
 
     // GOOD baseline. Used to prove the validator still accepts well-
     // formed meta.json after the new checks land. Mirrors a real

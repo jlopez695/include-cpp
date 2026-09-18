@@ -128,11 +128,11 @@ html.light .elevation-modal {
 /* ── Markdown prose ──
    Plain typographic hierarchy. h2 used to be uppercase + accent-colored + 12px
    tracked-out — an eyebrow tag, not a heading. h2 is now a real heading. */
-.prose-potd {
+.prose {
   line-height: 1.75;
   font-size: var(--text-base);
 }
-.prose-potd h1 {
+.prose h1 {
   font-size: 24px;
   font-weight: 600;
   color: var(--color-text-bright);
@@ -141,34 +141,34 @@ html.light .elevation-modal {
   border-bottom: 1px solid var(--color-border-soft);
   letter-spacing: -0.02em;
 }
-.prose-potd h2 {
+.prose h2 {
   font-size: 18px;
   font-weight: 600;
   color: var(--color-text-bright);
   margin: 28px 0 10px;
   letter-spacing: -0.01em;
 }
-.prose-potd h3 {
+.prose h3 {
   font-size: 15px;
   font-weight: 500;
   color: var(--color-text-bright);
   margin: 20px 0 6px;
 }
-.prose-potd p { margin: 0 0 14px; }
-.prose-potd ul, .prose-potd ol { padding-left: 22px; margin: 0 0 14px; }
-.prose-potd li { margin-bottom: 6px; }
-.prose-potd li::marker { color: var(--color-text-mute); }
-.prose-potd strong { color: var(--color-text-bright); font-weight: 500; }
-.prose-potd em { font-style: italic; color: inherit; }
-.prose-potd a {
+.prose p { margin: 0 0 14px; }
+.prose ul, .prose ol { padding-left: 22px; margin: 0 0 14px; }
+.prose li { margin-bottom: 6px; }
+.prose li::marker { color: var(--color-text-mute); }
+.prose strong { color: var(--color-text-bright); font-weight: 500; }
+.prose em { font-style: italic; color: inherit; }
+.prose a {
   color: var(--color-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-color: var(--color-accent-dim);
   transition: text-decoration-color 0.15s;
 }
-.prose-potd a:hover { text-decoration-color: var(--color-accent); }
-.prose-potd code {
+.prose a:hover { text-decoration-color: var(--color-accent); }
+.prose code {
   background: var(--color-bg-2);
   color: var(--color-text-bright);
   padding: 1px 5px;
@@ -176,7 +176,7 @@ html.light .elevation-modal {
   font-family: var(--font-mono);
   font-size: 12px;
 }
-.prose-potd pre {
+.prose pre {
   position: relative;
   background: var(--color-bg-2);
   border: 1px solid var(--color-border-soft);
@@ -187,35 +187,35 @@ html.light .elevation-modal {
   font-size: 12.5px;
   line-height: 1.55;
 }
-.prose-potd pre code {
+.prose pre code {
   background: none;
   padding: 0;
   border: none;
   color: var(--color-text-base);
   font-size: inherit;
 }
-.prose-potd blockquote {
+.prose blockquote {
   border-left: 2px solid var(--color-border-strong);
   padding: 0 14px;
   margin: 14px 0;
   color: var(--color-text-dim);
 }
-.prose-potd table {
+.prose table {
   width: 100%;
   border-collapse: collapse;
   margin: 14px 0;
   font-size: 12.5px;
 }
-.prose-potd th, .prose-potd td {
+.prose th, .prose td {
   text-align: left;
   padding: 6px 10px;
   border-bottom: 1px solid var(--color-border-soft);
 }
-.prose-potd th {
+.prose th {
   font-weight: 500;
   color: var(--color-text-bright);
 }
-.prose-potd hr {
+.prose hr {
   border: none;
   border-top: 1px solid var(--color-border-soft);
   margin: 22px 0;
@@ -265,7 +265,7 @@ kbd {
 *::-webkit-scrollbar-corner { background: transparent; }
 
 /* ── Copy button on code blocks ── */
-.prose-potd pre .copy-btn {
+.prose pre .copy-btn {
   position: absolute;
   top: 6px;
   right: 8px;
@@ -278,8 +278,8 @@ kbd {
   opacity: 0;
   transition: opacity 0.15s, color 0.15s;
 }
-.prose-potd pre:hover .copy-btn { opacity: 1; }
-.prose-potd pre .copy-btn:hover { color: var(--color-text-bright); }
+.prose pre:hover .copy-btn { opacity: 1; }
+.prose pre .copy-btn:hover { color: var(--color-text-bright); }
 
 /* ── Per-test pass pulse ──
    Brief green wash when a passing row mounts. Information, not celebration —
@@ -296,13 +296,21 @@ kbd {
 /* ── Hit-area extension (Fitts) ──
    Invisible click margin so small icon buttons clear the 32px target the rest
    of the chrome implies. Visual size unchanged. */
-.hit-area { position: relative; }
+/* `position: relative` is only a floor: the ::before needs a positioned
+   element to size the touch target against, so it applies only when the
+   element isn't already positioned by a utility. Without the guard
+   this rule beat Tailwind's `.absolute` — the sidebar's `hit-area-lg
+   absolute` bookmark star fell out of the row's top-right corner and
+   reflowed to the bottom-left. Layer order can't be relied on to settle
+   it: Tailwind emits its utilities block before `components` is first
+   named, which puts components last and therefore on top. */
+.hit-area:not(.absolute):not(.fixed):not(.sticky) { position: relative; }
 .hit-area::before {
   content: '';
   position: absolute;
   inset: -4px;
 }
-.hit-area-lg { position: relative; }
+.hit-area-lg:not(.absolute):not(.fixed):not(.sticky) { position: relative; }
 .hit-area-lg::before {
   content: '';
   position: absolute;

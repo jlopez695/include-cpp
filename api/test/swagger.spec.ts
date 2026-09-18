@@ -14,14 +14,14 @@ test('Swagger document is generated with correct metadata', async () => {
   );
 
   const config = new DocumentBuilder()
-    .setTitle('CS 225 POTD API')
+    .setTitle('#include <cpp> API')
     .setDescription('Test description')
     .setVersion('1.0')
     .build();
   const document = SwaggerModule.createDocument(app, config);
 
   // Verify top-level metadata
-  assert.equal(document.info.title, 'CS 225 POTD API');
+  assert.equal(document.info.title, '#include <cpp> API');
   assert.equal(document.info.version, '1.0');
 
   // Verify paths exist for our controllers

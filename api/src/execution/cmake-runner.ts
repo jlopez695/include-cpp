@@ -82,7 +82,7 @@ export async function runCmake(
   // multi-core host without either run starving the other; the incremental
   // Catch2 builds we actually run aren't compile-bound enough for a higher
   // cap to be load-bearing. If a future operator needs to tune this, a
-  // POTD_CMAKE_PARALLEL env knob is the right next step; a literal 2 is
+  // GRADER_CMAKE_PARALLEL env knob is the right next step; a literal 2 is
   // fine for the current corpus.
   const build = spawnLimited(`cmake --build "${buildDir}" --parallel 2`, {
     cwd: buildDir,
@@ -97,7 +97,7 @@ export async function runCmake(
     return { passed: 0, total: 0, exitCode: buildResult.exitCode };
   }
 
-  // Ensure CTestTestfile.cmake exists — some CS 225 CMakeLists.txt omit
+  // Ensure CTestTestfile.cmake exists — some CMakeLists.txt omit
   // enable_testing(), so CMake never generates the entry-point file that
   // ctest reads. catch_discover_tests() still writes *_include.cmake files
   // as a post-build step; we just need to create the glue file.
@@ -119,7 +119,7 @@ export async function runCmake(
     // ctest then exited non-zero and the runner read whatever
     // results.xml fragment had been flushed before the kill, reporting a
     // truncated passed/total to the user with no signal that the suite
-    // had been cut off. Any of the existing CS 225 problems that bundle
+    // had been cut off. Any of the existing problems that bundle
     // a Catch2 harness with dozens of tests can plausibly cross the
     // 10s default once test isolation overhead is factored in.
     const ctest = spawnLimited(`ctest --output-junit "${junitPath}" --output-on-failure`, {
@@ -142,7 +142,7 @@ export async function runCmake(
       // ctest's per-test XML wrapping can compound) would push the
       // Node process past --max-old-space-size and crash. The default
       // is overcommitted for a results document: real Catch2 output
-      // for a CS 225 problem clocks in well under 100 KB; 10 MB is
+      // for a problem clocks in well under 100 KB; 10 MB is
       // already 100× headroom. On overflow, surface a single stderr
       // event so the user sees *why* the result count is 0 instead
       // of having the parse silently swallow it.
@@ -151,7 +151,7 @@ export async function runCmake(
       if (junitStat.size > PARSE_MAX_BYTES) {
         emit({
           kind: 'stderr',
-          data: `[potd] ctest produced a ${junitStat.size}-byte results.xml; skipping parse (cap ${PARSE_MAX_BYTES}). No per-test results available for this run.\n`,
+          data: `[grader] ctest produced a ${junitStat.size}-byte results.xml; skipping parse (cap ${PARSE_MAX_BYTES}). No per-test results available for this run.\n`,
         });
         emit({ kind: 'run-end', exitCode, killedByTimeout: ctestResult.killedByTimeout });
         return { passed: 0, total: 0, exitCode };
@@ -208,8 +208,8 @@ export async function mirrorDir(src: string, dest: string): Promise<void> {
     } else if (entry.isFile()) {
       await copyFileIfDiffers(srcPath, destPath);
     }
-    // symlinks and other special entries are intentionally skipped — CS 225
-    // problem trees don't use them and we don't want to follow them blindly.
+    // symlinks and other special entries are intentionally skipped — problem
+    // trees don't use them and we don't want to follow them blindly.
   }
 }
 
@@ -263,7 +263,7 @@ function pipeStderrOnly(
  *
  * Preference order:
  *   1. <buildDir>/<entrypoint> — meta.entrypoint names the binary the
- *      problem author wants /run to invoke. CS 225 cmake problems
+ *      problem author wants /run to invoke. cmake problems
  *      typically build BOTH this and a separate Catch2 `test` binary
  *      in the same directory; without this precedence rule, readdir
  *      order would silently invoke the test harness on /run.

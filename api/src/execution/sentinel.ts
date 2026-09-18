@@ -5,9 +5,9 @@
  * The parser extracts these without false positives from regular output.
  *
  * Format:
- *   <<<POTD-TEST name="hours(3600)" status=pass>>>
- *   <<<POTD-TEST name="days(86400)" status=fail message="expected 1, got 0">>>
- *   <<<POTD-RESULT tests-passed=3 tests-total=5>>>
+ *   <<<GRADER-TEST name="hours(3600)" status=pass>>>
+ *   <<<GRADER-TEST name="days(86400)" status=fail message="expected 1, got 0">>>
+ *   <<<GRADER-RESULT tests-passed=3 tests-total=5>>>
  */
 
 export type TestStatus = 'pass' | 'fail' | 'skip' | 'crash';
@@ -30,7 +30,7 @@ export type SentinelEvent = TestEvent | ResultEvent;
 
 // Body can contain `>` (e.g. `result.size() >= 11`) but cannot contain the
 // literal terminator `>>>`. Non-greedy match to the closing `>>>`.
-const SENTINEL_RE = /<<<POTD-(TEST|RESULT)\s+(.+?)>>>/g;
+const SENTINEL_RE = /<<<GRADER-(TEST|RESULT)\s+(.+?)>>>/g;
 
 function parseKv(s: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -96,7 +96,7 @@ export function parseSentinels(chunk: string): SentinelEvent[] {
  *      case: graders emit sentinels on their own line.
  *
  *   2. Anything else that still looks like a sentinel — an inline sentinel
- *      ("Hello<<<POTD-TEST...>>> world"), or an end-of-stream tail where the
+ *      ("Hello<<<GRADER-TEST...>>> world"), or an end-of-stream tail where the
  *      final sentinel arrived without a trailing newline. Strip just the
  *      sentinel markup; leave the surrounding text alone.
  *
@@ -118,4 +118,4 @@ export function stripSentinels(chunk: string): string {
 // Whole-line sentinel: optional leading/trailing horizontal whitespace,
 // followed by the line's terminating newline. Multiline (`m`) so `^`/`$`
 // anchor to line boundaries within the chunk, not just the chunk boundary.
-const SENTINEL_LINE_RE = /^[ \t]*<<<POTD-(?:TEST|RESULT)\s+.+?>>>[ \t]*\r?\n/gm;
+const SENTINEL_LINE_RE = /^[ \t]*<<<GRADER-(?:TEST|RESULT)\s+.+?>>>[ \t]*\r?\n/gm;

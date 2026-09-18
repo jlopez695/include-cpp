@@ -1,8 +1,20 @@
 import { Controller, Get, Header, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ProblemsService } from './problems.service.js';
 import type { ProblemSummary } from './meta.types.js';
 
+// These routes serve in-memory cached metadata behind an hour of
+// Cache-Control, so they cost nothing to answer. Both root throttlers
+// apply to every route, which meant the `exec` budget (8 per 10s, sized
+// for the endpoints that spawn a compiler) also governed these reads —
+// `next build` fetches every problem during static generation and got a
+// 429 on the 9th. Both buckets are overridden here; `exec` is left
+// enforcing its real limit on the execution controller.
+@Throttle({
+  default: { ttl: 10_000, limit: 300 },
+  exec: { ttl: 10_000, limit: 300 },
+})
 @ApiTags('problems')
 @Controller('problems')
 export class ProblemsController {

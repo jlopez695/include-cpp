@@ -4,7 +4,7 @@
  * collision".
  *
  * Background: the SENTINEL_RE regex in api/src/execution/sentinel.ts
- * matches `<<<POTD-(TEST|RESULT)\s+(.+?)>>>` with a NON-GREEDY body
+ * matches `<<<GRADER-(TEST|RESULT)\s+(.+?)>>>` with a NON-GREEDY body
  * because the previous fix needed the body to allow single-` >` chars
  * (`result.size() >= 11`). The non-greedy choice means the close marker
  * is whichever `>>>` appears FIRST after the open, so if the message
@@ -13,7 +13,7 @@
  *
  *   emit_test_event("foo", "fail", "expected x >>> 3, got 5")
  *     → stdout:
- *       <<<POTD-TEST name="foo" status=fail message="expected x >>> 3, got 5">>>
+ *       <<<GRADER-TEST name="foo" status=fail message="expected x >>> 3, got 5">>>
  *
  * parseSentinels' non-greedy capture latched onto the first `>>>` in
  * the message body. parseKv read `message="expected x ` (stopping at
@@ -101,7 +101,7 @@ describe('parseSentinels accepts the escaped triple-rangle shape that emit_test_
   // close-marker can't latch onto it.
   it('one TEST event with the escaped message survives intact', () => {
     const sentinel =
-      '<<<POTD-TEST name="foo" status=fail message="expected x >> > 3, got 5">>>';
+      '<<<GRADER-TEST name="foo" status=fail message="expected x >> > 3, got 5">>>';
     const events = parseSentinels(sentinel);
     assert.equal(events.length, 1, 'must parse to exactly one TEST event, not two');
     const ev = events[0]!;
@@ -119,7 +119,7 @@ describe('parseSentinels accepts the escaped triple-rangle shape that emit_test_
     // a future refactor could end up inlining it next to user stdout.
     // Make sure the escaped form doesn't expose that as a parser hazard.
     const chunk =
-      '<<<POTD-TEST name="bar" status=fail message="size >> > 11">>>\nuser printed: 5\n';
+      '<<<GRADER-TEST name="bar" status=fail message="size >> > 11">>>\nuser printed: 5\n';
     const events = parseSentinels(chunk);
     assert.equal(events.length, 1);
     const ev = events[0]!;
@@ -137,7 +137,7 @@ describe('parseSentinels accepts the escaped triple-rangle shape that emit_test_
     // would update — but the harness-side escape stays a belt-and-
     // suspenders defense.
     const sentinel =
-      '<<<POTD-TEST name="foo" status=fail message="expected x >>> 3, got 5">>>';
+      '<<<GRADER-TEST name="foo" status=fail message="expected x >>> 3, got 5">>>';
     const events = parseSentinels(sentinel);
     // The non-greedy regex truncates at the FIRST `>>>`. Exactly one
     // TEST event comes out but its message is corrupted (truncated at

@@ -23,9 +23,9 @@ describe('computeCorsOrigins', () => {
   it('production: returns only FRONTEND_ORIGIN, no localhost fallbacks', () => {
     const origins = computeCorsOrigins({
       NODE_ENV: 'production',
-      FRONTEND_ORIGIN: 'https://potd.example.com',
+      FRONTEND_ORIGIN: 'https://cpp.example.com',
     });
-    assert.deepEqual(origins, ['https://potd.example.com']);
+    assert.deepEqual(origins, ['https://cpp.example.com']);
   });
 
   it('production with no FRONTEND_ORIGIN: falls back to the default origin only', () => {

@@ -30,7 +30,7 @@ import { getStreak, recordSolveDate } from '../lib/storage.js';
 // of the loop, silently truncating the streak.
 //
 // `readStringArray` already filtered non-string entries out of
-// potd:solve-dates, but it accepted ANY string — including non-date
+// cpp:solve-dates, but it accepted ANY string — including non-date
 // strings like 'garbage', a half-written 'YYYY-MM' truncation, an
 // extension's clobbering value, or a leftover entry from a build that
 // stored dates in a different format. A single bad entry was enough to
@@ -46,7 +46,7 @@ import { getStreak, recordSolveDate } from '../lib/storage.js';
 // garbage in storage would mean every subsequent getStreak() call paid
 // the same filtering cost AND a future bug in the filter could expose
 // the bad value again.
-describe('getStreak ignores malformed entries in potd:solve-dates', () => {
+describe('getStreak ignores malformed entries in cpp:solve-dates', () => {
   beforeEach(() => {
     for (const key of Object.keys(store)) delete store[key];
   });
@@ -57,7 +57,7 @@ describe('getStreak ignores malformed entries in potd:solve-dates', () => {
   const threeDaysAgo = new Date(Date.now() - 86400000 * 3).toISOString().slice(0, 10);
 
   it('returns the full streak when valid dates are contiguous', () => {
-    store['potd:solve-dates'] = JSON.stringify([today, yesterday, twoDaysAgo, threeDaysAgo]);
+    store['cpp:solve-dates'] = JSON.stringify([today, yesterday, twoDaysAgo, threeDaysAgo]);
     assert.equal(getStreak(), 4);
   });
 
@@ -67,7 +67,7 @@ describe('getStreak ignores malformed entries in potd:solve-dates', () => {
     // guard `sorted[0] !== today && sorted[0] !== yesterday` then
     // returns 0 immediately, BEFORE the loop runs. So the visible
     // streak was 0, not "1 plus whatever survived the loop".
-    store['potd:solve-dates'] = JSON.stringify([today, 'garbage', yesterday, twoDaysAgo]);
+    store['cpp:solve-dates'] = JSON.stringify([today, 'garbage', yesterday, twoDaysAgo]);
     assert.equal(getStreak(), 3);
   });
 
@@ -75,7 +75,7 @@ describe('getStreak ignores malformed entries in potd:solve-dates', () => {
     // A half-written value or a leftover from a build that stored
     // year-month only. Both year and month parse cleanly, but `Number(undefined)`
     // is NaN, so the day is NaN → diff is NaN → loop breaks.
-    store['potd:solve-dates'] = JSON.stringify([today, '2026-05', yesterday, twoDaysAgo]);
+    store['cpp:solve-dates'] = JSON.stringify([today, '2026-05', yesterday, twoDaysAgo]);
     assert.equal(getStreak(), 3);
   });
 
@@ -83,7 +83,7 @@ describe('getStreak ignores malformed entries in potd:solve-dates', () => {
     // All entries get filtered out → dates.length === 0 → existing
     // early-return path. Confirms the filter doesn't accidentally invent
     // a streak out of garbage.
-    store['potd:solve-dates'] = JSON.stringify(['totally', 'broken', 'data']);
+    store['cpp:solve-dates'] = JSON.stringify(['totally', 'broken', 'data']);
     assert.equal(getStreak(), 0);
   });
 
@@ -91,7 +91,7 @@ describe('getStreak ignores malformed entries in potd:solve-dates', () => {
     // sorted[0] !== today && sorted[0] !== yesterday triggers the
     // existing early return. The filter must not break this case by
     // accidentally including a recent malformed entry as if it were today.
-    store['potd:solve-dates'] = JSON.stringify(['2020-01-01', 'garbage', '2020-01-02']);
+    store['cpp:solve-dates'] = JSON.stringify(['2020-01-01', 'garbage', '2020-01-02']);
     assert.equal(getStreak(), 0);
   });
 
@@ -99,19 +99,19 @@ describe('getStreak ignores malformed entries in potd:solve-dates', () => {
     // 'zzzz' sorts above every YYYY-MM-DD string. Pre-fix this hit the
     // sorted[0] guard immediately and returned 0; post-fix the filter
     // drops it before sort and the streak is computed normally.
-    store['potd:solve-dates'] = JSON.stringify(['zzzz-99-99', today, yesterday]);
+    store['cpp:solve-dates'] = JSON.stringify(['zzzz-99-99', today, yesterday]);
     assert.equal(getStreak(), 2);
   });
 
   it('returns 1 when only today is valid amid garbage', () => {
     // Single-day streak past the top-of-loop guard. After filtering,
     // sorted is [today], the loop doesn't run, streak stays at 1.
-    store['potd:solve-dates'] = JSON.stringify(['garbage', today, 'more-garbage']);
+    store['cpp:solve-dates'] = JSON.stringify(['garbage', today, 'more-garbage']);
     assert.equal(getStreak(), 1);
   });
 });
 
-describe('recordSolveDate heals malformed entries in potd:solve-dates', () => {
+describe('recordSolveDate heals malformed entries in cpp:solve-dates', () => {
   beforeEach(() => {
     for (const key of Object.keys(store)) delete store[key];
   });
@@ -122,9 +122,9 @@ describe('recordSolveDate heals malformed entries in potd:solve-dates', () => {
     // This matches the pattern in storage-corruption.spec.ts where
     // recordSolveDate "heals" a corrupt parse into a clean array.
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    store['potd:solve-dates'] = JSON.stringify(['garbage', yesterday, 'more-garbage']);
+    store['cpp:solve-dates'] = JSON.stringify(['garbage', yesterday, 'more-garbage']);
     recordSolveDate();
-    const after = JSON.parse(store['potd:solve-dates']);
+    const after = JSON.parse(store['cpp:solve-dates']);
     assert.ok(Array.isArray(after));
     for (const entry of after) {
       assert.match(entry, /^\d{4}-\d{2}-\d{2}$/, `entry "${entry}" survived but is not YYYY-MM-DD`);
@@ -136,9 +136,9 @@ describe('recordSolveDate heals malformed entries in potd:solve-dates', () => {
     // valid date has to survive into the rewritten array so the streak
     // doesn't reset after a heal.
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    store['potd:solve-dates'] = JSON.stringify(['garbage', yesterday]);
+    store['cpp:solve-dates'] = JSON.stringify(['garbage', yesterday]);
     recordSolveDate();
-    const after = JSON.parse(store['potd:solve-dates']);
+    const after = JSON.parse(store['cpp:solve-dates']);
     assert.ok(after.includes(yesterday), 'valid yesterday entry should survive the heal');
   });
 });

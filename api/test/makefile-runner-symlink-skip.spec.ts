@@ -25,7 +25,7 @@ import path from 'node:path';
  */
 
 test('readdir + isFile filter skips symlinks, matching the makefile-runner copyDir contract', async () => {
-  const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'potd-symlink-skip-'));
+  const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'cpp-symlink-skip-'));
   try {
     // src/regular.txt and src/symlink-to-passwd → /etc/hosts (a
     // benign target — we just want to prove the entry isn't

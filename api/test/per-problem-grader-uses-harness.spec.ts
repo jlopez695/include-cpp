@@ -3,9 +3,9 @@
  * and the API can't parse their results".
  *
  * The API parses test outcomes via parseSentinels() in sentinel.ts, which
- * matches `<<<POTD-TEST ...>>>` and `<<<POTD-RESULT ...>>>` lines. The
+ * matches `<<<GRADER-TEST ...>>>` and `<<<GRADER-RESULT ...>>>` lines. The
  * canonical way to emit those lines is the harness in
- * `problems/_shared/grader_harness.h` (POTD_TEST + POTD_ASSERT*). A
+ * `problems/_shared/grader_harness.h` (GRADER_TEST + GRADER_ASSERT*). A
  * grader that prints `[PASS]`/`[FAIL]` text and returns exit 0/1 (the
  * old POTD1/POTD2/POTD3 shape) does NOT emit sentinels — so the
  * controller's terminal `done` event reports `{passed:0, total:0}`
@@ -18,7 +18,7 @@
  * the old [PASS]/[FAIL] shape (or reverts one of POTD1/2/3 to it) fails
  * CI before it lands. Specifically for every Makefile-based problem:
  *   - tests/grader.cpp must #include "grader_harness.h"
- *   - tests/grader.cpp must call POTD_TEST(...) at least once
+ *   - tests/grader.cpp must call GRADER_TEST(...) at least once
  *   - the Makefile's test target must pass -I$(SHARED_INCLUDE) so the
  *     harness header resolves
  *
@@ -58,15 +58,15 @@ describe('per-problem graders emit sentinel-shaped results via the harness', () 
       assert.match(
         graderSource,
         /^[ \t]*#\s*include\s+"grader_harness\.h"/m,
-        `${id}/tests/grader.cpp must #include "grader_harness.h". A grader that doesn't include the harness can't emit <<<POTD-TEST>>>/<<<POTD-RESULT>>> sentinels, so the API reports 0/0 passed regardless of actual outcome.`,
+        `${id}/tests/grader.cpp must #include "grader_harness.h". A grader that doesn't include the harness can't emit <<<GRADER-TEST>>>/<<<GRADER-RESULT>>> sentinels, so the API reports 0/0 passed regardless of actual outcome.`,
       );
     });
 
-    it(`${id}/tests/grader.cpp registers at least one POTD_TEST`, () => {
+    it(`${id}/tests/grader.cpp registers at least one GRADER_TEST`, () => {
       assert.match(
         graderSource,
-        /\bPOTD_TEST\s*\(/,
-        `${id}/tests/grader.cpp must call POTD_TEST(...) at least once. Without registered tests the harness's potd::run_all() emits zero per-test sentinels and a result event with total=0.`,
+        /\bGRADER_TEST\s*\(/,
+        `${id}/tests/grader.cpp must call GRADER_TEST(...) at least once. Without registered tests the harness's grader::run_all() emits zero per-test sentinels and a result event with total=0.`,
       );
     });
 
@@ -78,7 +78,7 @@ describe('per-problem graders emit sentinel-shaped results via the harness', () 
       assert.doesNotMatch(
         graderSource,
         /"\[PASS\]"|"\[FAIL\]"/,
-        `${id}/tests/grader.cpp must not print "[PASS]"/"[FAIL]" — those strings aren't parsed by sentinel.ts. Use POTD_TEST/POTD_ASSERT* macros from grader_harness.h instead.`,
+        `${id}/tests/grader.cpp must not print "[PASS]"/"[FAIL]" — those strings aren't parsed by sentinel.ts. Use GRADER_TEST/GRADER_ASSERT* macros from grader_harness.h instead.`,
       );
     });
 

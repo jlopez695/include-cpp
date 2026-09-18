@@ -1,5 +1,5 @@
 {
-  "name": "225potd",
+  "name": "include-cpp",
   "private": true,
   "workspaces": ["api", "web"],
   "scripts": {

@@ -1,6 +1,8 @@
-# CS 225 POTD
+# `#include <cpp>`
 
-Local archive + web solver for the CS 225 Problem of the Day series. Each problem lives in `problems/<id>/` exactly as PrairieLearn shipped it, with an added `meta.json`, `problem.md`, and `tests/grader.cpp`.
+Learn C++ from zero to data structures. A browser-based IDE with graded practice problems and video lessons.
+
+Each problem lives in `problems/<id>/` exactly as shipped by its source, with an added `meta.json`, `problem.md`, and `tests/grader.cpp`. The Problem of the Day (POTD) set is one of the problem collections served by the platform.
 
 ## Stack
 
@@ -42,7 +44,7 @@ npm run dev -w web         # http://localhost:3000
 ## Layout
 
 ```
-225POTD/
+include-cpp/
 ├── package.json            Root — npm workspaces (api, web)
 ├── node_modules/           Single shared node_modules
 ├── api/                    NestJS backend
@@ -95,7 +97,7 @@ If tests fail with "allocation failed" errors on code that should fit in budget,
 
 ## Authoring a new problem
 
-1. Drop the PrairieLearn files into `problems/POTDxx/`.
+1. Drop the source files into `problems/POTDxx/`.
 2. Add `problem.md` with the full statement.
 3. Add `meta.json`:
    ```json

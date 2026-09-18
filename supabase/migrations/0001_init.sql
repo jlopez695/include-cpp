@@ -1,4 +1,4 @@
--- CS 225 POTD — Supabase schema
+-- POTD — Supabase schema
 -- Three tables, all per-user, all RLS-protected.
 
 create extension if not exists "pgcrypto";

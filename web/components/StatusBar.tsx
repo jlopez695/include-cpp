@@ -38,7 +38,7 @@ export function StatusBar({
     // already handled the class correctly. Just match what we'd see
     // if there were no saved value.
     try {
-      const saved = localStorage.getItem('potd:theme');
+      const saved = localStorage.getItem('cpp:theme');
       if (saved === 'light') {
         setDark(false);
         document.documentElement.classList.add('light');
@@ -62,7 +62,7 @@ export function StatusBar({
     // error every time the user clicked the theme button on those
     // browsers (still visually toggled, but with a console scar).
     try {
-      localStorage.setItem('potd:theme', next ? 'dark' : 'light');
+      localStorage.setItem('cpp:theme', next ? 'dark' : 'light');
     } catch { /* preference won't persist past this session */ }
   };
 

@@ -9,10 +9,10 @@
  * sidebar's status state never refreshes — the dot stays gray (or stays
  * partial) until the user navigates away and back, or hard-reloads.
  *
- * The fix: saveStatus dispatches a `potd:status-change` CustomEvent on
+ * The fix: saveStatus dispatches a `cpp:status-change` CustomEvent on
  * window after writing localStorage; Sidebar listens for it and patches
  * the row inline. recordSolveDate does the same with
- * `potd:streak-change` for the footer streak badge.
+ * `cpp:streak-change` for the footer streak badge.
  *
  * This file tests both layers:
  *   1. storage.ts actually dispatches the event with the right payload

@@ -35,12 +35,12 @@ describe('SSE CORS allowlist contract', () => {
     const allow = new Set(
       computeCorsOrigins({
         NODE_ENV: 'production',
-        FRONTEND_ORIGIN: 'https://potd.example.com',
+        FRONTEND_ORIGIN: 'https://cpp.example.com',
       }),
     );
     assert.equal(allow.has('https://evil.example.com'), false);
     assert.equal(allow.has('http://localhost:3000'), false);
-    assert.equal(allow.has('https://potd.example.com'), true);
+    assert.equal(allow.has('https://cpp.example.com'), true);
   });
 
   it('the dev allowlist still admits the local frontend origins', () => {

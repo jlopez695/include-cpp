@@ -15,4 +15,4 @@ import 'server-only';
  * so it can be unit-tested without paying for Next.js's server-only
  * runtime guard.
  */
-export { renderMarkdown } from './markdown-pipeline.js';
+export { renderMarkdown } from './markdown-pipeline';

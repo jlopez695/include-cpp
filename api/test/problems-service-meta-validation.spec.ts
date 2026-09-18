@@ -44,7 +44,7 @@ describe('ProblemsService meta.json shape validation', () => {
   let tmpRoot: string;
 
   before(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'potd-svc-meta-validation-'));
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cpp-svc-meta-validation-'));
 
     // GOOD baseline — kept in the set so we can prove the bad ones are
     // skipped while the good one survives.

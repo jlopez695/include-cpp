@@ -9,7 +9,7 @@
  *      FRONTEND_ORIGIN default (which is also `'http://localhost:3000'`)
  *      — in dev it just appeared twice in the allowlist.
  *
- *   2. In production, setting `FRONTEND_ORIGIN=https://potd.example.com`
+ *   2. In production, setting `FRONTEND_ORIGIN=https://cpp.example.com`
  *      to lock the API down to one origin SILENTLY left
  *      `http://localhost:3000` and `http://localhost:5173` whitelisted,
  *      defeating the lockdown. Anyone who could resolve the API host

@@ -43,7 +43,7 @@ describe('makefile-runner stdoutTail cap', () => {
     // newline, then exits cleanly. Going through a real subprocess
     // exercises pipeChild via the actual on('data') path rather than
     // monkey-patching the internal helper.
-    const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'potd-stdout-cap-'));
+    const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'cpp-stdout-cap-'));
     const scriptPath = path.join(tmpDir, 'flood.js');
     // 512 KB of x, no newline.
     await fs.promises.writeFile(

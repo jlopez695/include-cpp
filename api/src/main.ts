@@ -65,8 +65,8 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('CS 225 POTD API')
-    .setDescription('Code execution and problem management for CS 225 Problem of the Day')
+    .setTitle('#include <cpp> API')
+    .setDescription('Code execution and problem management for the C++ learning platform')
     .setVersion('1.0')
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -1,12 +1,12 @@
-/* CS 225 POTD service worker.
+/* Service worker.
  *
  * Strategy:
  *
- *   /_next/static/*  →  cache-first in a fixed `potd-static` cache. URLs
+ *   /_next/static/*  →  cache-first in a fixed `cpp-static` cache. URLs
  *                       are content-hashed; a cache hit is always correct.
  *
  *   HTML navigations →  cache-first within a build-ID-namespaced cache,
- *                       e.g. `potd-html-zv7WDJNzwVTuUjRYq3cyR`. Within a
+ *                       e.g. `cpp-html-zv7WDJNzwVTuUjRYq3cyR`. Within a
  *                       build the cache serves first, then revalidates in
  *                       the background. On deploy the build ID changes and
  *                       the prior namespace is evicted *inline* — see the
@@ -20,15 +20,15 @@
  *   never installs a new SW and the activate handler never runs. So we
  *   eject stale html caches inline from getBuildId — every time the
  *   memoized build ID expires (BUILD_ID_TTL) and a fresh probe returns a
- *   value different from the last we saw, we drop every potd-html-* cache
+ *   value different from the last we saw, we drop every cpp-html-* cache
  *   that isn't the current one. This is what makes a deploy actually
  *   propagate to a long-lived SW.
  *
  * The build ID comes from /api/version (returns .next/BUILD_ID).
  */
 
-const STATIC_CACHE = 'potd-static';
-const HTML_CACHE_PREFIX = 'potd-html-';
+const STATIC_CACHE = 'cpp-static';
+const HTML_CACHE_PREFIX = 'cpp-html-';
 const BUILD_ID_TTL = 30_000;
 
 let buildIdPromise = null;
@@ -84,7 +84,7 @@ self.addEventListener('activate', event => {
         keys
           // Anything that isn't our static cache or the current html cache
           // is legacy — including caches from prior SW versions that used
-          // different naming schemes (e.g. `potd-v1`). Drop them all.
+          // different naming schemes (e.g. `cpp-v1`). Drop them all.
           .filter(k => k !== STATIC_CACHE && k !== liveHtml)
           .map(k => caches.delete(k)),
       );

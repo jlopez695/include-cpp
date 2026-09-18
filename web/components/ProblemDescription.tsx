@@ -108,7 +108,7 @@ export function ProblemDescription({ html }: ProblemDescriptionProps) {
     // effect handles same-component html updates without needing a key.
     <div
       ref={ref}
-      className="flex-1 overflow-y-auto px-6 pt-[22px] pb-8 prose-potd animate-fade-in"
+      className="flex-1 overflow-y-auto px-6 pt-[22px] pb-8 prose animate-fade-in"
       role="article"
       dangerouslySetInnerHTML={{ __html: html }}
     />

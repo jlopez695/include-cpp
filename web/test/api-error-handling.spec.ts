@@ -21,7 +21,7 @@ describe('ApiError carries HTTP status so callers can distinguish 404 from 5xx',
     globalThis.fetch = (async () =>
       new Response('{"statusCode":404}', { status: 404 })) as typeof fetch;
     try {
-      await assert.rejects(fetchProblem('POTD_DOES_NOT_EXIST'), (err: unknown) => {
+      await assert.rejects(fetchProblem('DOES_NOT_EXIST'), (err: unknown) => {
         assert.ok(err instanceof ApiError);
         assert.equal((err as ApiError).status, 404);
         return true;

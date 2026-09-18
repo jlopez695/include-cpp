@@ -90,11 +90,11 @@ function generateId(): string {
 
 function getAnonId(): string {
   if (typeof window === 'undefined') return 'ssr';
-  const existing = safeGetItem('potd:anonymous-id');
+  const existing = safeGetItem('cpp:anonymous-id');
   if (existing) return existing;
 
   const fresh = generateId();
-  if (safeSetItem('potd:anonymous-id', fresh)) return fresh;
+  if (safeSetItem('cpp:anonymous-id', fresh)) return fresh;
 
   // localStorage couldn't persist (Safari Private Mode, quota exceeded,
   // sandboxed iframe). Keep the id in memory so subsequent calls within
@@ -114,7 +114,7 @@ export function getUserId(): string {
 /* ── Code persistence ── */
 
 const codeKey = (problemId: string, filename: string) =>
-  `potd:code:${problemId}:${filename}`;
+  `cpp:code:${problemId}:${filename}`;
 
 export function loadCode(problemId: string, filename: string): string | null {
   if (typeof window === 'undefined') return null;
@@ -299,7 +299,7 @@ export function clearCode(problemId: string, filenames: string[]): void {
 
 /* ── Status persistence ── */
 
-const statusKey = (problemId: string) => `potd:status:${problemId}`;
+const statusKey = (problemId: string) => `cpp:status:${problemId}`;
 
 // Valid Status values, parallel to the `Status` union in lib/types. Inlined
 // (not exported from types) because runtime validation needs the actual set
@@ -354,8 +354,8 @@ export function getSolvedCount(problemIds: string[]): number {
 // `storage` event only fires for cross-tab writes, not same-tab — these
 // custom events fill that gap for the same-tab "solve current problem →
 // see sidebar update without reloading" flow.
-export const STATUS_CHANGE_EVENT = 'potd:status-change';
-export const STREAK_CHANGE_EVENT = 'potd:streak-change';
+export const STATUS_CHANGE_EVENT = 'cpp:status-change';
+export const STREAK_CHANGE_EVENT = 'cpp:streak-change';
 
 export interface StatusChangeDetail {
   problemId: string;
@@ -439,7 +439,7 @@ export function saveStatus(
 // Parse a localStorage value that we expect to be JSON of `string[]`.
 // Returns [] if the key is missing, the JSON is malformed, or the parsed
 // value isn't a homogeneous array of strings. Without this guard, any
-// corruption to potd:solve-dates or potd:bookmarks (manual devtools
+// corruption to cpp:solve-dates or cpp:bookmarks (manual devtools
 // edit, a half-written value, an extension stomping on storage) would
 // throw synchronously and brick the page that reads it — the streak
 // display, the bookmarks list, the sidebar — until the user manually
@@ -458,7 +458,7 @@ function readStringArray(key: string): string[] {
 }
 
 // Strict YYYY-MM-DD shape — applied to every entry surfaced from
-// potd:solve-dates before it can reach calendarDaysApart below.
+// cpp:solve-dates before it can reach calendarDaysApart below.
 // readStringArray already filtered non-strings, but accepted any string
 // that JSON.parse produced — including a half-written value, a clobbering
 // extension's payload, a 'YYYY-MM' truncation, or a leftover from a build
@@ -471,7 +471,7 @@ function readStringArray(key: string): string[] {
 const VALID_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function readSolveDates(): string[] {
-  return readStringArray('potd:solve-dates').filter(d => VALID_DATE_RE.test(d));
+  return readStringArray('cpp:solve-dates').filter(d => VALID_DATE_RE.test(d));
 }
 
 export function recordSolveDate(): void {
@@ -496,7 +496,7 @@ export function recordSolveDate(): void {
     // still held the old value. Building a fresh array via spread
     // keeps the read-side state untouched on write failure.
     const next = [...dates, today];
-    safeSetItem('potd:solve-dates', JSON.stringify(next));
+    safeSetItem('cpp:solve-dates', JSON.stringify(next));
     mutated = true;
   }
   // Only notify when the underlying solve-dates set actually changed —
@@ -553,7 +553,7 @@ export interface BestResult {
 
 export function loadBestResult(problemId: string): BestResult | null {
   if (typeof window === 'undefined') return null;
-  const raw = safeGetItem(`potd:best:${problemId}`);
+  const raw = safeGetItem(`cpp:best:${problemId}`);
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -600,12 +600,12 @@ export function saveBestResult(problemId: string, passed: number, total: number)
   if (!Number.isFinite(passed) || !Number.isFinite(total)) return false;
   const existing = loadBestResult(problemId);
   if (existing && existing.passed >= passed && existing.total === total) return false;
-  return safeSetItem(`potd:best:${problemId}`, JSON.stringify({ passed, total }));
+  return safeSetItem(`cpp:best:${problemId}`, JSON.stringify({ passed, total }));
 }
 
 /* ── Bookmarks ── */
 
-const BOOKMARKS_KEY = 'potd:bookmarks';
+const BOOKMARKS_KEY = 'cpp:bookmarks';
 
 export function getBookmarkedIds(): string[] {
   if (typeof window === 'undefined') return [];
@@ -649,7 +649,7 @@ export function toggleBookmark(problemId: string): boolean {
 
 export function loadUiState<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
-  const raw = safeGetItem(`potd:ui:${key}`);
+  const raw = safeGetItem(`cpp:ui:${key}`);
   if (!raw) return fallback;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -705,5 +705,5 @@ export function saveUiState<T>(key: string, value: T): void {
   // No-op on private-mode failure. The biggest hot path is useResizable's
   // mouseup handler (global window listener — a throw here would surface
   // as uncaughtException), so the silent-drop semantics matter.
-  safeSetItem(`potd:ui:${key}`, JSON.stringify(value));
+  safeSetItem(`cpp:ui:${key}`, JSON.stringify(value));
 }

@@ -11,7 +11,7 @@ import { ApiProperty } from '@nestjs/swagger';
 // while it ran. Three caps, all checked at the DTO boundary so the
 // failure is a clean 400 naming which cap tripped:
 //   - MAX_FILES_ENTRIES: number of files per submission. The largest
-//     CS 225 problem in the corpus has 3 editable files; 32 is generous
+//     a typical problem in the corpus has 3 editable files; 32 is generous
 //     headroom that still rejects a fan-out attack.
 //   - MAX_FILE_VALUE_LENGTH: per-file size cap. Real student
 //     submissions are well under 50 KB; 256 KB lets accidentally-pasted

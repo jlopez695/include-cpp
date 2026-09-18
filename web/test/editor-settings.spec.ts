@@ -71,7 +71,7 @@ describe('vim mode persistence (loadUiState / saveUiState)', () => {
   });
 
   it('survives corrupt JSON gracefully', () => {
-    store['potd:ui:vimMode'] = '{bad json';
+    store['cpp:ui:vimMode'] = '{bad json';
     assert.equal(loadUiState('vimMode', false), false);
   });
 });

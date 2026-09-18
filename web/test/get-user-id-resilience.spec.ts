@@ -9,10 +9,10 @@
  *
  * Pre-fix the implementation assumed both pieces always work:
  *
- *   let id = localStorage.getItem('potd:anonymous-id');   // can throw
+ *   let id = localStorage.getItem('cpp:anonymous-id');   // can throw
  *   if (!id) {
  *     id = crypto.randomUUID();                           // can throw
- *     localStorage.setItem('potd:anonymous-id', id);      // can throw
+ *     localStorage.setItem('cpp:anonymous-id', id);      // can throw
  *   }
  *   return id;
  *
@@ -78,7 +78,7 @@ describe('storage.getAnonId tolerates broken localStorage / missing randomUUID',
     assert.ok(fn, 'could not locate getAnonId');
     assert.match(
       fn![0],
-      /safeGetItem\(\s*['"]potd:anonymous-id['"]/,
+      /safeGetItem\(\s*['"]cpp:anonymous-id['"]/,
       'getAnonId must read via safeGetItem, not a raw localStorage.getItem',
     );
   });
@@ -97,7 +97,7 @@ describe('storage.getAnonId tolerates broken localStorage / missing randomUUID',
     assert.ok(fn);
     assert.match(
       fn![0],
-      /safeSetItem\(\s*['"]potd:anonymous-id['"]/,
+      /safeSetItem\(\s*['"]cpp:anonymous-id['"]/,
       'getAnonId must write via safeSetItem, not a raw localStorage.setItem',
     );
   });

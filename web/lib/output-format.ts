@@ -28,7 +28,7 @@ const LINE_TERMINATOR_RE = /\r?\n/;
  *      leave a trailing `\r` glued to the last character of each line.
  *      Pre-fix a chunk like `"hello\r\n"` mapped to `["hello\r"]`,
  *      and the lone `\r` (a control character) rode along into the
- *      `whitespace-pre-wrap` div in the output panel. CS 225 problems
+ *      `whitespace-pre-wrap` div in the output panel. Problems
  *      on macOS/Linux mostly emit `\n`, but any toolchain that flows
  *      through MSYS / Cygwin / MinGW (and some C++ runtime libraries
  *      mid-line on Windows) emits CRLF, and the `\r` survived end-to-

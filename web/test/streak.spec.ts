@@ -43,7 +43,7 @@ describe('SSR safety (hydration fix)', () => {
   });
 
   it('recordSolveDate is a no-op when window is undefined', () => {
-    store['potd:solve-dates'] = JSON.stringify(['2025-01-01']);
+    store['cpp:solve-dates'] = JSON.stringify(['2025-01-01']);
     const saved = globalThis.window;
     delete (globalThis as any).window;
     try {
@@ -52,11 +52,11 @@ describe('SSR safety (hydration fix)', () => {
       (globalThis as any).window = saved;
     }
     // store should be unchanged — the function was a no-op
-    assert.deepEqual(JSON.parse(store['potd:solve-dates']), ['2025-01-01']);
+    assert.deepEqual(JSON.parse(store['cpp:solve-dates']), ['2025-01-01']);
   });
 
   it('loadStatus returns "unsolved" even when localStorage has data but window is gone', () => {
-    store['potd:status:POTD0'] = 'solved';
+    store['cpp:status:POTD0'] = 'solved';
     const saved = globalThis.window;
     delete (globalThis as any).window;
     try {
@@ -84,7 +84,7 @@ describe('streak tracking', () => {
   it('does not duplicate same-day solves', () => {
     recordSolveDate();
     recordSolveDate();
-    const dates = JSON.parse(store['potd:solve-dates']);
+    const dates = JSON.parse(store['cpp:solve-dates']);
     const today = new Date().toISOString().slice(0, 10);
     assert.equal(dates.filter((d: string) => d === today).length, 1);
   });
@@ -96,20 +96,20 @@ describe('streak tracking', () => {
       const d = new Date(today.getTime() - i * 86400000);
       dates.push(d.toISOString().slice(0, 10));
     }
-    store['potd:solve-dates'] = JSON.stringify(dates);
+    store['cpp:solve-dates'] = JSON.stringify(dates);
     assert.equal(getStreak(), 5);
   });
 
   it('returns 0 streak if most recent solve was 2+ days ago', () => {
     const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
-    store['potd:solve-dates'] = JSON.stringify([twoDaysAgo]);
+    store['cpp:solve-dates'] = JSON.stringify([twoDaysAgo]);
     assert.equal(getStreak(), 0);
   });
 
   it('counts streak starting from yesterday', () => {
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const dayBefore = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
-    store['potd:solve-dates'] = JSON.stringify([dayBefore, yesterday]);
+    store['cpp:solve-dates'] = JSON.stringify([dayBefore, yesterday]);
     assert.equal(getStreak(), 2);
   });
 
@@ -118,7 +118,7 @@ describe('streak tracking', () => {
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     // Skip a day, then have an older one
     const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
-    store['potd:solve-dates'] = JSON.stringify([threeDaysAgo, yesterday, today]);
+    store['cpp:solve-dates'] = JSON.stringify([threeDaysAgo, yesterday, today]);
     assert.equal(getStreak(), 2); // only yesterday + today
   });
 });
@@ -174,7 +174,7 @@ describe('streak is stable across DST transitions', () => {
     }
     (globalThis as any).Date = MockDate;
     try {
-      store['potd:solve-dates'] = JSON.stringify([
+      store['cpp:solve-dates'] = JSON.stringify([
         '2026-03-07', // before DST
         '2026-03-08', // DST transition day
         '2026-03-09', // after DST
@@ -205,7 +205,7 @@ describe('streak is stable across DST transitions', () => {
     }
     (globalThis as any).Date = MockDate;
     try {
-      store['potd:solve-dates'] = JSON.stringify([
+      store['cpp:solve-dates'] = JSON.stringify([
         '2026-10-31',
         '2026-11-01', // DST transition day
         '2026-11-02',

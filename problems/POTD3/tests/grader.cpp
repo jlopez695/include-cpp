@@ -42,40 +42,40 @@ static std::string address_of(const Circle& c) {
     return a.str();
 }
 
-POTD_TEST("pass_by_value produces output") {
+GRADER_TEST("pass_by_value produces output") {
     Circle c; c.setRadius(5);
-    POTD_ASSERT(capture_value(c).size() > 0);
+    GRADER_ASSERT(capture_value(c).size() > 0);
 }
 
-POTD_TEST("pass_by_value prints a DIFFERENT address than main") {
+GRADER_TEST("pass_by_value prints a DIFFERENT address than main") {
     Circle c; c.setRadius(5);
     const std::string main_addr = address_of(c);
     const std::string out = capture_value(c);
-    POTD_ASSERT(out.find(main_addr) == std::string::npos);
+    GRADER_ASSERT(out.find(main_addr) == std::string::npos);
 }
 
-POTD_TEST("pass_by_pointer produces output") {
+GRADER_TEST("pass_by_pointer produces output") {
     Circle c; c.setRadius(5);
-    POTD_ASSERT(capture_pointer(&c).size() > 0);
+    GRADER_ASSERT(capture_pointer(&c).size() > 0);
 }
 
-POTD_TEST("pass_by_pointer prints the SAME address as main") {
+GRADER_TEST("pass_by_pointer prints the SAME address as main") {
     Circle c; c.setRadius(5);
     const std::string main_addr = address_of(c);
     const std::string out = capture_pointer(&c);
-    POTD_ASSERT(out.find(main_addr) != std::string::npos);
+    GRADER_ASSERT(out.find(main_addr) != std::string::npos);
 }
 
-POTD_TEST("pass_by_ref produces output") {
+GRADER_TEST("pass_by_ref produces output") {
     Circle c; c.setRadius(5);
-    POTD_ASSERT(capture_ref(c).size() > 0);
+    GRADER_ASSERT(capture_ref(c).size() > 0);
 }
 
-POTD_TEST("pass_by_ref prints the SAME address as main") {
+GRADER_TEST("pass_by_ref prints the SAME address as main") {
     Circle c; c.setRadius(5);
     const std::string main_addr = address_of(c);
     const std::string out = capture_ref(c);
-    POTD_ASSERT(out.find(main_addr) != std::string::npos);
+    GRADER_ASSERT(out.find(main_addr) != std::string::npos);
 }
 
-int main() { return potd::run_all(); }
+int main() { return grader::run_all(); }

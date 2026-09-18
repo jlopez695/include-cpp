@@ -8,15 +8,15 @@
  * emit_test_event and run over `message` only. `name` was interpolated
  * raw into the printf format:
  *
- *   std::printf("<<<POTD-TEST name=\"%s\" status=%s>>>\n", name, status);
+ *   std::printf("<<<GRADER-TEST name=\"%s\" status=%s>>>\n", name, status);
  *
  * A grader written in the obvious style for an equality test —
  *
- *   POTD_TEST("FizzBuzz(3) == \"Fizz\"") { ... }
+ *   GRADER_TEST("FizzBuzz(3) == \"Fizz\"") { ... }
  *
  * therefore emitted
  *
- *   <<<POTD-TEST name="FizzBuzz(3) == "Fizz"" status=pass>>>
+ *   <<<GRADER-TEST name="FizzBuzz(3) == "Fizz"" status=pass>>>
  *
  * and parseKv's quoted-string branch (/"((?:[^"\\]|\\.)*)"/ in
  * api/src/execution/sentinel.ts) ended the value at the SECOND quote.
@@ -111,22 +111,22 @@ describe('a compiled grader with quote- and rangle-bearing test names round-trip
   let tmpDir: string;
 
   before(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'potd-escape-name-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cpp-escape-name-'));
     const graderSrc = `
 #include "grader_harness.h"
 
-POTD_TEST("FizzBuzz(3) == \\"Fizz\\"") {
-    POTD_FAIL("got \\"Buzz\\" instead");
+GRADER_TEST("FizzBuzz(3) == \\"Fizz\\"") {
+    GRADER_FAIL("got \\"Buzz\\" instead");
 }
 
-POTD_TEST("shift >>> is not a close marker") {
-    POTD_FAIL("saw >>> in the middle");
+GRADER_TEST("shift >>> is not a close marker") {
+    GRADER_FAIL("saw >>> in the middle");
 }
 
-POTD_TEST("plain name with no hazards") {
+GRADER_TEST("plain name with no hazards") {
 }
 
-int main() { return potd::run_all(); }
+int main() { return grader::run_all(); }
 `;
     const srcPath = path.join(tmpDir, 'grader.cpp');
     const binPath = path.join(tmpDir, 'grader_bin');

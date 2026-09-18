@@ -24,7 +24,7 @@ export async function runMakefile(
   signal: AbortSignal,
 ): Promise<{ passed: number; total: number; exitCode: number }> {
   const problemDir = path.join(PROBLEMS_DIR, problemId);
-  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), `potd-${problemId}-`));
+  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), `cpp-${problemId}-`));
 
   let passed = 0;
   let total = 0;
@@ -51,7 +51,7 @@ export async function runMakefile(
       // Quote the include path. CXXFLAGS is passed via the Makefile to
       // `$(CXX) $(CXXFLAGS) ...` under bash, and an unquoted -I path
       // word-splits on whitespace if SHARED_INCLUDE_DIR contains spaces
-      // (e.g. a deploy with PROBLEMS_DIR=/Users/jacoblo/My Drive/225POTD/
+      // (e.g. a deploy with PROBLEMS_DIR=/Users/jacoblo/My Drive/include-cpp/
       // problems — Google Drive sync paths really do look like this).
       // The compile would then fail with a confusing "no input files"
       // because `c++ -I/Users/jacoblo/My Drive/...` reads "Drive/..." as
@@ -113,7 +113,7 @@ export async function runMakefile(
     //     SIGKILL (OOM) in the gap between resolve and rm completion, the
     //     dir leaked permanently. macOS reliably clears /tmp on boot but
     //     long-running Linux containers don't, and under sustained load
-    //     `/tmp/potd-*` directories briefly accumulated hundreds-deep
+    //     `/tmp/cpp-*` directories briefly accumulated hundreds-deep
     //     between request finish and rm flush.
     //   - It also broke "process exit signals tmpdir cleanup" assumptions
     //     for any teardown wrapper layered on top.

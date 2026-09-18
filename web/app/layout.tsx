@@ -16,12 +16,12 @@ const jetbrains = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   display: 'swap',
-  weight: ['400', '500'],
+  weight: ['400', '500', '600'],
 });
 
 export const metadata: Metadata = {
-  title: 'CS 225 POTD',
-  description: 'Problem of the Day archive and web solver for CS 225',
+  title: '#include <cpp>',
+  description: 'Learn C++ from zero to data structures — a browser-based IDE with graded practice problems and video lessons',
 };
 
 export const viewport: Viewport = {
@@ -37,7 +37,7 @@ export const viewport: Viewport = {
 // Wrapped in try/catch because Safari Private Mode and locked-down
 // browsers can throw on localStorage access; the fallback is a dark page,
 // which is what the SSR-rendered className already implies.
-const themeInitScript = `(function(){try{var t=localStorage.getItem('potd:theme');if(t==='light')document.documentElement.classList.add('light');}catch(e){}})();`;
+const themeInitScript = `(function(){try{var t=localStorage.getItem('cpp:theme');if(t==='light')document.documentElement.classList.add('light');}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

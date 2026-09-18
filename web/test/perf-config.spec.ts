@@ -206,9 +206,15 @@ describe('Performance configuration', () => {
       // Pin the indirection so a future refactor can't accidentally
       // inline the pipeline back into markdown-server.ts without
       // updating the testability story.
+      //
+      // The specifier must stay extensionless. This assertion used to
+      // require './markdown-pipeline.js', which Turbopack resolves
+      // literally — there is no such .js file, so every problem page
+      // 500'd while tsc and node --test both stayed green. See
+      // turbopack-resolvable-imports.spec.ts.
       assert.ok(
-        /export\s+\{\s*renderMarkdown\s*\}\s+from\s+['"]\.\/markdown-pipeline\.js['"]/.test(serverSource),
-        'markdown-server.ts should re-export renderMarkdown from ./markdown-pipeline.js so the pipeline stays testable',
+        /export\s+\{\s*renderMarkdown\s*\}\s+from\s+['"]\.\/markdown-pipeline['"]/.test(serverSource),
+        'markdown-server.ts should re-export renderMarkdown from ./markdown-pipeline (no .js extension) so the pipeline stays testable and Turbopack can resolve it',
       );
     });
   });

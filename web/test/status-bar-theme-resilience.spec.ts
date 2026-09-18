@@ -8,14 +8,14 @@
  * that touched `localStorage.*` directly. It had two such call sites:
  *
  *   useEffect(() => {
- *     const saved = localStorage.getItem('potd:theme');  // can throw
+ *     const saved = localStorage.getItem('cpp:theme');  // can throw
  *     ...
  *   }, []);
  *
  *   const toggleTheme = () => {
  *     ...
- *     localStorage.setItem('potd:theme', 'dark');         // can throw
- *     localStorage.setItem('potd:theme', 'light');        // can throw
+ *     localStorage.setItem('cpp:theme', 'dark');         // can throw
+ *     localStorage.setItem('cpp:theme', 'light');        // can throw
  *   };
  *
  * Under Safari Private Mode and sandboxed-iframe contexts the
@@ -50,13 +50,13 @@ describe('StatusBar theme handling tolerates a blocked localStorage', () => {
   });
 
   it('the mount-time localStorage.getItem read is try/catch-wrapped', () => {
-    // Locate the useEffect that reads potd:theme on mount. The whole
+    // Locate the useEffect that reads cpp:theme on mount. The whole
     // try block must contain BOTH the getItem call AND the class
     // application — otherwise a throw inside getItem leaves the page
     // in an inconsistent half-applied state.
     assert.match(
       src,
-      /useEffect\(\(\)\s*=>\s*\{[\s\S]*?try\s*\{[\s\S]*?localStorage\.getItem\(\s*['"]potd:theme['"][\s\S]*?\}\s*catch/,
+      /useEffect\(\(\)\s*=>\s*\{[\s\S]*?try\s*\{[\s\S]*?localStorage\.getItem\(\s*['"]cpp:theme['"][\s\S]*?\}\s*catch/,
       'StatusBar mount useEffect must wrap its localStorage.getItem call in try/catch',
     );
   });
@@ -88,13 +88,13 @@ describe('StatusBar theme handling tolerates a blocked localStorage', () => {
     // Don't break the existing two-branch persist into something that
     // accidentally drops one. The fix uses a single setItem call with
     // a ternary, so this pin doesn't enforce the exact shape — only
-    // that setItem('potd:theme', ...) lives inside the try and the
+    // that setItem('cpp:theme', ...) lives inside the try and the
     // catch is present.
     const toggleBody = src.match(/const\s+toggleTheme\s*=[\s\S]+?\n\s*\};/);
     assert.ok(toggleBody);
     assert.match(
       toggleBody![0],
-      /try\s*\{[\s\S]*?localStorage\.setItem\(\s*['"]potd:theme['"][\s\S]*?\}\s*catch/,
+      /try\s*\{[\s\S]*?localStorage\.setItem\(\s*['"]cpp:theme['"][\s\S]*?\}\s*catch/,
       'toggleTheme must wrap localStorage.setItem in try/catch',
     );
   });

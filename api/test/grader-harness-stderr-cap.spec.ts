@@ -25,7 +25,7 @@
  *     throws std::bad_alloc.
  *   - bad_alloc escapes OUTSIDE the run_in_child try block (the try
  *     wraps only the child's body, not the parent's read loop), so
- *     std::terminate aborts the entire grader. No <<<POTD-RESULT...>>>
+ *     std::terminate aborts the entire grader. No <<<GRADER-RESULT...>>>
  *     ever reaches the parser. The SSE `done` event lands with
  *     {passed:0, total:0} and the user sees "0/0 tests passed" with
  *     no diagnostic.

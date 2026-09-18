@@ -111,10 +111,10 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
           <span className="w-1 h-5 bg-accent rounded-sm" aria-hidden="true" />
           <button
             onClick={() => setShowProgress(true)}
-            className="text-[18px] font-semibold text-text-bright tracking-[-0.01em] hover:opacity-80 transition-opacity"
-            aria-label="CS 225 — open progress"
+            className="text-[18px] font-semibold text-text-bright tracking-[-0.01em] font-mono hover:opacity-80 transition-opacity"
+            aria-label="#include <cpp> — open progress"
           >
-            CS 225
+            {'#include <cpp>'}
           </button>
         </div>
         {onCollapse && (
@@ -204,7 +204,6 @@ export function Sidebar({ problems, activeId, statusOverrides, onCollapse }: Sid
                 style={isActive ? { boxShadow: 'inset 2px 0 0 var(--color-accent), inset 0 1px 0 rgba(255,255,255,0.06)' } : undefined}
               >
                 <StatusDot status={status} />
-                <span className="text-text-mute font-mono text-[11px] tabular-nums w-12 shrink-0">{p.id}</span>
                 <span className="text-[14px] truncate flex-1">{p.title}</span>
               </Link>
               <button

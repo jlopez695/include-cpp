@@ -3,7 +3,7 @@
  * with a saved light-mode preference (FOUC)."
  *
  * Before this fix, theme initialization lived in StatusBar's mount
- * useEffect: it would read `localStorage.getItem('potd:theme')` after
+ * useEffect: it would read `localStorage.getItem('cpp:theme')` after
  * React hydrated and call `document.documentElement.classList.add('light')`.
  * That meant the page rendered with the default dark palette first, then
  * snapped to light ~50–300ms later when the effect fired — a very visible
@@ -11,7 +11,7 @@
  * `--color-text-*` variable (near-black background to white).
  *
  * The fix puts a synchronous initializer in <head>:
- *   1. Reads localStorage.potd:theme.
+ *   1. Reads localStorage.cpp:theme.
  *   2. If 'light', adds the `light` class to documentElement before paint.
  *   3. Wrapped in try/catch — Safari Private Mode throws on localStorage.
  *
@@ -45,11 +45,11 @@ describe('layout.tsx — synchronous theme init avoids FOUC', () => {
     );
   });
 
-  it('the script reads localStorage.potd:theme', () => {
+  it('the script reads localStorage.cpp:theme', () => {
     // The key must match the one StatusBar writes to (web/components/StatusBar.tsx
-    // toggleTheme: localStorage.setItem('potd:theme', ...)). A mismatched
+    // toggleTheme: localStorage.setItem('cpp:theme', ...)). A mismatched
     // key reads null forever and the FOUC silently returns.
-    assert.match(src, /localStorage\.getItem\(\s*['"]potd:theme['"]/);
+    assert.match(src, /localStorage\.getItem\(\s*['"]cpp:theme['"]/);
   });
 
   it("the script adds the 'light' class to documentElement when saved theme is 'light'", () => {
