@@ -27,10 +27,10 @@ import { fileURLToPath } from 'node:url';
  * every test in cmake-runner.spec.ts). The structural pin below is
  * the minimum-bang-for-buck regression guard: it fails the moment
  * someone removes the explicit limits without considering the
- * defaults. The same approach is used elsewhere in this codebase
- * (see SESSION_NOTES.md's "structural pin in source + runtime test"
- * pattern — the runtime-test half lives in cmake-runner.spec.ts via
- * the real-spawn integration tests).
+ * defaults. It is one half of a pattern used elsewhere in this
+ * codebase — a structural pin on the source paired with a runtime
+ * test; here the runtime half lives in cmake-runner.spec.ts via the
+ * real-spawn integration tests.
  */
 test('cmake-runner: ctest spawnLimited call carries explicit cpuSeconds:60 / wallMs:60_000', async () => {
   const cmakeRunnerPath = fileURLToPath(

@@ -33,3 +33,8 @@ problems/*/test_runner
 # Claude Code settings (personal)
 .claude/
 
+# Local scratch notes
+/*_NOTES.md
+/SCRATCH*
+/TODO.local*
+
