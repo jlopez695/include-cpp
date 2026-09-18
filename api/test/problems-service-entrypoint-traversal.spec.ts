@@ -22,7 +22,7 @@
  *
  * Threat model: a hostile-contributor PR (not a user request — the
  * /run path is gated by validateRunRequest's editableFiles allowlist).
- * Realistic for a classroom-contributed POTD corpus that takes PRs
+ * Realistic for a community-contributed POTD corpus that takes PRs
  * from students.
  *
  * Fix: assertBareFilename rejects leading '/', any '..' substring, and

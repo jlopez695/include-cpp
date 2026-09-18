@@ -20,8 +20,8 @@
  *   <a href="javascript:alert(1)">click</a>
  *
  * — a live XSS sink the moment a user clicked it. Threat model is
- * "hostile contributor lands a poisoned problem.md" in a classroom-
- * contributed POTD corpus that accepts student PRs, not "hostile user
+ * "hostile contributor lands a poisoned problem.md" in a community-
+ * contributed POTD corpus that accepts outside PRs, not "hostile user
  * submits markdown at request time". The defense-in-depth gap is
  * realistic; defense-in-depth fix is to make the markdown→HTML
  * pipeline itself the security boundary.
@@ -94,11 +94,11 @@ test('http: link is preserved AND gains rel="noopener noreferrer" + target="_bla
 
 test('mailto: link is preserved (third allowed protocol)', async () => {
   // mailto: stays on the allowlist because real problem.md content can
-  // legitimately link to an instructor's email. Pin it so a future
+  // legitimately link to an author's email. Pin it so a future
   // "tighten the allowlist further" change has to consciously decide
   // whether to drop mailto.
-  const html = await renderMarkdown('[email](mailto:instructor@example.com)');
-  assert.match(html, /href="mailto:instructor@example\.com"/, `Got: ${html}`);
+  const html = await renderMarkdown('[email](mailto:author@example.com)');
+  assert.match(html, /href="mailto:author@example\.com"/, `Got: ${html}`);
 });
 
 test('cpp code block keeps highlight-js classNames (sanitize-before-highlight order)', async () => {

@@ -40,7 +40,7 @@ import makefile from 'highlight.js/lib/languages/makefile';
  *   5. rehypeStringify serializes to HTML.
  *
  * Threat model is "hostile-contributor PR lands a poisoned problem.md"
- * in a classroom-contributed corpus that accepts student PRs — not
+ * in a community-contributed corpus that accepts outside PRs — not
  * "hostile user submits markdown at request time". The render output
  * is rendered with dangerouslySetInnerHTML on the client, so the
  * sanitizer is the security boundary regardless of provenance.
