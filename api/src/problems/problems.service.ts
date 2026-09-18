@@ -106,18 +106,48 @@ export class ProblemsService implements OnModuleInit {
   }
 
   private readOrderHint(id: string): number {
+    let parsed: Record<string, unknown>;
     try {
       const raw = fs.readFileSync(path.join(this.problemsDir, id, 'meta.json'), 'utf8');
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      if (typeof parsed.order === 'number' && Number.isFinite(parsed.order)) {
-        return parsed.order;
-      }
+      parsed = JSON.parse(raw) as Record<string, unknown>;
     } catch {
       // Malformed JSON or an unreadable file — fall through to the same
       // end-of-list placement as a well-formed meta.json that simply
-      // omits `order`. populateCache's readMetaFromDisk reports the real
-      // error for this problem separately; this method only ever needs
-      // a sort key.
+      // omits `order`, and stay quiet: populateCache's readMetaFromDisk
+      // reports the real error for this problem separately, and warning
+      // twice about one broken file just buries the useful message.
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    if (typeof parsed.order === 'number' && Number.isFinite(parsed.order)) {
+      return parsed.order;
+    }
+
+    // An `order` that is present but not a number (a string, null) is a
+    // hard validation error: assertMeta rejects the problem and
+    // populateCache logs a skip line naming the field and the value.
+    // Warning here as well would double-log one mistake, so only the
+    // genuinely-absent case gets a line. (A non-finite number is
+    // unreachable from disk — JSON has no NaN or Infinity literal — but
+    // the guard above stays as belt-and-braces for the sort key.)
+    if (parsed.order === undefined) {
+      // Nothing else reports this one: the problem is well-formed, so it
+      // caches and serves normally, and the only symptom is that it sits
+      // at the bottom of the sidebar no matter where the author meant it
+      // to go. That reads as a sorting bug rather than a missing field,
+      // and the obvious places to look (Sidebar.tsx, the /api/problems
+      // response) both contain nothing wrong. Non-fatal on purpose:
+      // `order` stays optional, because rejecting the problem in
+      // assertMeta would drop it from the list and 404 its page, a far
+      // worse outcome for a forgotten integer.
+      //
+      // `id` is a directory name straight off disk and macOS permits
+      // CR/LF in one, so strip them before interpolating — same
+      // reasoning as the sanitize in populateCache.
+      const safeId = id.replace(/[\r\n]/g, '_');
+      this.logger.warn(
+        `Problem '${safeId}': meta.json has no 'order' field — sorting it to the end of the list.`,
+      );
     }
     return Number.MAX_SAFE_INTEGER;
   }

@@ -21,7 +21,7 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: '#include <cpp>',
-  description: 'Learn C++ from zero to data structures — a browser-based IDE with graded practice problems and video lessons',
+  description: 'Learn C++ from zero to data structures — a browser-based IDE with graded practice problems',
 };
 
 export const viewport: Viewport = {
